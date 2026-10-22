@@ -5,6 +5,7 @@ import { z } from "zod";
 import { runSql } from "../data/zetaris.js";
 import type { RunMemory, ScoredMemoryEntry } from "../engines/types.js";
 import { chat, type ChatMessage, type Receipt, type ToolCall, type ToolDefinition } from "../providers/meterless.js";
+import { findPart, formatToc, tocEntries } from "./toc.js";
 import type { Draft, Profile, ResearchResult, TraceStep } from "./types.js";
 
 export const MAX_TURNS = 8;
@@ -26,6 +27,24 @@ export const TOOLS: ToolDefinition[] = [
         type: "object",
         properties: { sql: { type: "string", description: "A single SELECT statement" } },
         required: ["sql"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "browse_part",
+      description:
+        "List section_id, section_no and heading for every section in one Part of an Act. " +
+        "Copy chapter and part from the Map of the Acts; use \"(none)\" where the map shows (none).",
+      parameters: {
+        type: "object",
+        properties: {
+          act_id: { type: "string", enum: ["NTA-2025", "NTAA-2025", "NRSEA-2025", "JRBEA-2025"] },
+          chapter: { type: "string" },
+          part: { type: "string" },
+        },
+        required: ["act_id", "part"],
       },
     },
   },
@@ -55,9 +74,14 @@ function systemPrompt(): string {
   ];
   const found = candidates.find((p) => existsSync(p));
   if (!found) throw new Error("Researcher prompt src/agents/prompts/researcher.md not found");
-  promptCache = readFileSync(found, "utf-8");
+  promptCache = readFileSync(found, "utf-8").replace("{{MAP_OF_ACTS}}", formatToc(tocEntries()));
   return promptCache;
 }
+
+/** Exported for tests: the system prompt with the Map of the Acts filled in. */
+export const researcherSystemPrompt = systemPrompt;
+
+const sqlString = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
 export type SqlGuard = { ok: true; sql: string } | { ok: false; error: string };
 
@@ -150,6 +174,28 @@ async function execTool(call: ToolCall): Promise<ToolOutcome> {
       };
     }
 
+    if (tool === "browse_part") {
+      if (typeof args.act_id !== "string") return toolError(tool, "browse_part needs act_id.");
+      const str = (v: unknown) => (typeof v === "string" ? v : null);
+      const found = findPart(tocEntries(), args.act_id, str(args.chapter), str(args.part));
+      const label = `${args.act_id} ${str(args.chapter) ?? ""} ${str(args.part) ?? ""}`.replace(/\s+/g, " ").trim();
+      if (!found.ok) return toolError(tool, found.error, { requested: label });
+      const e = found.entry;
+      const where = [
+        `act_id = ${sqlString(e.act_id)}`,
+        e.chapter === null ? "chapter IS NULL" : `chapter = ${sqlString(e.chapter)}`,
+        e.part === null ? "part IS NULL" : `part = ${sqlString(e.part)}`,
+      ].join(" AND ");
+      const sql = `SELECT section_id, section_no, heading FROM taxmap.sections WHERE ${where} ORDER BY CAST(section_no AS INT)`;
+      const res = await runSql(sql);
+      const rows = toRows(res.columns, res.rows, false);
+      return {
+        content: JSON.stringify({ act_id: e.act_id, chapter: e.chapter, part: e.part, sections: rows }),
+        detail: { tool, requested: label, sql_run: sql, row_count: rows.length },
+        rows,
+      };
+    }
+
     if (tool === "get_sections") {
       const ids = args.section_ids;
       if (!Array.isArray(ids) || ids.length === 0 || !ids.every((x) => typeof x === "string")) {
@@ -176,7 +222,7 @@ async function execTool(call: ToolCall): Promise<ToolOutcome> {
       requested: args.section_ids,
     });
   }
-  return toolError(tool, `Unknown tool '${tool}'. Use run_sql or get_sections.`);
+  return toolError(tool, `Unknown tool '${tool}'. Use browse_part, run_sql or get_sections.`);
 }
 
 const ClaimSchema = z.object({
@@ -234,9 +280,8 @@ interface RunState {
 
 const FINAL_EXCERPTS = 30;
 
-function alreadyFound(entries: ScoredMemoryEntry[], st: RunState, turn: number): string {
+function alreadyFound(entries: ScoredMemoryEntry[], st: RunState, turn: number, lastTurn: boolean): string {
   const { seen, fetched, queries } = st;
-  const lastTurn = turn >= MAX_TURNS;
   const lines = [
     `Turn ${turn} of ${MAX_TURNS}.`,
     "Already found (summary of earlier tool results; they are not repeated in full):",
@@ -275,7 +320,40 @@ function taskMessage(profile: Profile, question: string): string {
     `Question: ${question}`,
     "",
     "Search the loaded statutes with the tools, read every section you will cite with get_sections, then reply with the Draft JSON.",
+    "",
+    "Before deciding whether an obligation applies, check the Act's definitions and any threshold or exemption provisions " +
+      "relevant to the profile (for example, provisions that define a small company or exempt small businesses) and cite them. " +
+      "If a section you have read contains a subsection that disapplies the rule for this profile, say so in the claim text " +
+      "or move the point to notes.",
   ].join("\n");
+}
+
+const REPEAT_PREFIX = "ALREADY RUN; use browse_part or get_sections instead";
+const MAX_REPEATS = 2;
+
+/**
+ * A comparison key for run_sql: case and whitespace folded, LIMIT ignored, ILIKE and lower(col)
+ * LIKE treated alike, and the terms of a flat OR list sorted. Nested AND/OR logic keeps its order.
+ */
+export function canonicalSql(sql: string): string {
+  let s = sql.toLowerCase().replace(/\s+/g, " ").trim();
+  s = s.replace(/\s+limit\s+\d+$/, "");
+  s = s.replace(/\bilike\b/g, "like").replace(/lower\(\s*([\w.]+)\s*\)/g, "$1");
+  const m = /^(.*? where )(.*?)( order by .*)?$/.exec(s);
+  if (!m) return s;
+  const terms = (m[2] ?? "").split(/ or /).map((t) => t.trim());
+  if (terms.some((t) => /\band\b|[()]/.test(t))) return s;
+  return `${m[1]}${[...new Set(terms)].sort().join(" or ")}${m[3] ?? ""}`;
+}
+
+const NOTE_ID_RE = /\b(NTA|NTAA|NRSEA|JRBEA)\s*[‐-―−-]\s*2025\s*[‐-―−-]\s*s(\d+)\b/gi;
+
+/** Replaces any note that names a section_id the run did not read in full. */
+export function filterNotes(notes: string[], fetched: Set<string>): string[] {
+  return notes.map((n) => {
+    const ids = [...n.matchAll(NOTE_ID_RE)].map((m) => `${(m[1] ?? "").toUpperCase()}-2025-s${m[2]}`);
+    return ids.some((id) => !fetched.has(id)) ? "note removed: unread section" : n;
+  });
 }
 
 const now = () => new Date().toISOString();
@@ -302,6 +380,25 @@ export async function research(profile: Profile, question: string, memory: RunMe
   let toolsOff = false; // set for the revision turn that follows an agent fetch
   let draft: Draft | undefined;
   let fallback: Draft | undefined; // the pre-verification draft, if the revision cannot be parsed
+  const sqlResults = new Map<string, string>(); // canonicalSql -> tool result content
+  let repeats = 0;
+  let finalEarly = false; // set after MAX_REPEATS repeated queries
+
+  /** A run_sql identical to an earlier one: answer from the earlier result instead of re-running it. */
+  function repeatOf(call: ToolCall): { key: string; earlier?: string } | undefined {
+    if (call.function.name !== "run_sql") return undefined;
+    let sql: unknown;
+    try {
+      sql = (JSON.parse(call.function.arguments || "{}") as { sql?: unknown }).sql;
+    } catch {
+      return undefined;
+    }
+    if (typeof sql !== "string") return undefined;
+    const guard = guardSql(sql);
+    if (!guard.ok) return undefined;
+    const key = canonicalSql(guard.sql);
+    return { key, earlier: sqlResults.get(key) };
+  }
 
   async function runTool(call: ToolCall, by: "model" | "agent"): Promise<ToolOutcome> {
     trace.push({
@@ -309,7 +406,16 @@ export async function research(profile: Profile, question: string, memory: RunMe
       ts: now(),
       detail: { id: call.id, name: call.function.name, arguments: call.function.arguments, by },
     });
+    const rep = repeatOf(call);
+    if (rep?.earlier !== undefined) {
+      repeats++;
+      if (repeats >= MAX_REPEATS) finalEarly = true;
+      const prior = JSON.parse(rep.earlier) as { row_count?: number };
+      trace.push({ kind: "tool_result", ts: now(), detail: { tool: "run_sql", repeat: repeats, row_count: prior.row_count ?? 0, by } });
+      return { content: `${REPEAT_PREFIX}\n${rep.earlier}`, detail: { tool: "run_sql", repeat: repeats }, rows: [] };
+    }
     const out = await execTool(call);
+    if (rep && !out.detail.error) sqlResults.set(rep.key, out.content);
     trace.push({ kind: "tool_result", ts: now(), detail: { ...out.detail, by } });
     const ids = out.rows.map((r) => r.section_id).filter((x): x is string => typeof x === "string");
     ids.forEach((id) => seen.add(id));
@@ -338,16 +444,17 @@ export async function research(profile: Profile, question: string, memory: RunMe
     return out;
   }
 
-  // Every path at turn >= MAX_TURNS ends the loop except the single correction and the single
+  // The final turn comes at MAX_TURNS, or earlier after MAX_REPEATS repeated queries. Every path on
+  // it ends the loop except the single correction and the single
   // verification turn, so a run makes at most MAX_TURNS + 2 model calls.
   for (let turn = 1; ; turn++) {
-    const lastTurn = turn >= MAX_TURNS;
+    const lastTurn = turn >= MAX_TURNS || finalEarly;
     const noTools = lastTurn || toolsOff;
     toolsOff = false;
     let userContent = task;
     if (turn > 1) {
       const found = await memory.retrieve(question, 5);
-      userContent = `${task}\n\n${alreadyFound(found, st, turn)}`;
+      userContent = `${task}\n\n${alreadyFound(found, st, turn, lastTurn)}`;
     }
     // Turns without tools also leave out tool-call history: in a live run the model kept emitting
     // tool calls under tool_choice "none" and even with no tools in the request.
@@ -420,7 +527,8 @@ export async function research(profile: Profile, question: string, memory: RunMe
             "You cited sections you had not read in full. Their full text is below. Check every claim against the text: " +
             "keep a claim only if the text supports it as it applies to this business, correct it where the text says " +
             "something different (for example an exemption for small businesses), and remove it otherwise. " +
-            "Reply with only the revised Draft JSON.\n\n" +
+            "Notes must only describe sections you have read in full; the agent will verify this and remove any note " +
+            "that names another section. Reply with only the revised Draft JSON.\n\n" +
             JSON.stringify(texts),
         },
       ];
@@ -466,7 +574,7 @@ export async function research(profile: Profile, question: string, memory: RunMe
   return {
     draft: {
       claims: claims.filter((c) => c.section_ids.length > 0),
-      notes: [...result.notes, ...notes],
+      notes: [...filterNotes(result.notes, fetched), ...notes],
       unanswered: result.unanswered,
     },
     trace,

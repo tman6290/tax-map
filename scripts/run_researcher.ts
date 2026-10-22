@@ -29,9 +29,16 @@ for (const step of result.trace) {
     const calls = (d.tool_calls as string[]).join(", ") || "final answer";
     console.log(`turn ${turn}: ${step.receipt?.routed_model} -> ${calls}`);
   } else if (step.kind === "tool_result") {
+    const by = d.by === "agent" ? " [agent]" : "";
+    if (d.repeat) {
+      console.log(`  REPEAT ${String(d.repeat)}: earlier result returned (${String(d.row_count)} rows)`);
+      continue;
+    }
     const what =
-      d.tool === "run_sql" ? String(d.sql_run ?? d.sql_requested) : `get_sections ${JSON.stringify(d.requested ?? [])}`;
-    console.log(`  ${d.error ? "ERROR" : `${d.row_count} rows`}: ${what}${d.error ? ` (${d.error})` : ""}`);
+      d.tool === "run_sql"
+        ? String(d.sql_run ?? d.sql_requested)
+        : `${String(d.tool)} ${typeof d.requested === "string" ? d.requested : JSON.stringify(d.requested ?? [])}`;
+    console.log(`  ${d.error ? "ERROR" : `${d.row_count} rows`}${by}: ${what}${d.error ? ` (${d.error})` : ""}`);
   }
 }
 const tokensIn = result.receipts.reduce((n, r) => n + r.input_tokens, 0);
