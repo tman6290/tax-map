@@ -1,0 +1,42 @@
+[
+  {
+    "act_id": "NTA-2025",
+    "act_title": "Nigeria Tax Act, 2025",
+    "short_title": "Nigeria Tax Act",
+    "year": 2025,
+    "tier": "federal",
+    "source_file": "gazette/NTA-2025-gazette-fgp.pdf",
+    "source_sha256": "41ABF6887BC58A3C97116FD9A048AA91AD49C1CAB156F39065A58401C0FCE94F",
+    "section_count": 202
+  },
+  {
+    "act_id": "NTAA-2025",
+    "act_title": "Nigeria Tax Administration Act, 2025",
+    "short_title": "Nigeria Tax Administration Act",
+    "year": 2025,
+    "tier": "federal",
+    "source_file": "gazette/NTAA-2025-gazette-gng.pdf",
+    "source_sha256": "1602CF3245F250107E9BA0099C8755B52D04CD8A497A3C029772C624AB2C2625",
+    "section_count": 148
+  },
+  {
+    "act_id": "NRSEA-2025",
+    "act_title": "Nigeria Revenue Service (Establishment) Act, 2025",
+    "short_title": "Nigeria Revenue Service (Establishment) Act",
+    "year": 2025,
+    "tier": "federal",
+    "source_file": "ctc/NRSA-2025-ctc.pdf",
+    "source_sha256": "B7072257F6D68DD99EC10F332FBDDB5FB507681B85172852A16510BFAFB87F0E",
+    "section_count": 43
+  },
+  {
+    "act_id": "JRBEA-2025",
+    "act_title": "Joint Revenue Board of Nigeria (Establishment) Act, 2025",
+    "short_title": "Joint Revenue Board of Nigeria (Establishment) Act",
+    "year": 2025,
+    "tier": "federal",
+    "source_file": "ctc/JRBA-2025-ctc.pdf",
+    "source_sha256": "97B648230DEE2F6FC1E9F5248343DFB8D6C6D17B4C2D38ABE661ABEE6201E458",
+    "section_count": 61
+  }
+]
