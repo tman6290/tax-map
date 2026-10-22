@@ -1,0 +1,14 @@
+{
+  "project_name": "Tax Map",
+  "track": "Track 2: The Agent That Can Explain Why",
+  "team": "solo",
+  "sponsor_technology": {
+    "zetaris": "TBD",
+    "meterless": "TBD",
+    "cursor": "TBD",
+    "nvidia": "TBD"
+  },
+  "models_used": [],
+  "data_sources": [],
+  "pre_existing_components": []
+}
