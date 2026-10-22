@@ -4,6 +4,11 @@
 //   npx tsx scripts/register_tables.ts --dry-run   print statements, send nothing
 //   npx tsx scripts/register_tables.ts             create what is missing, skip what exists
 //   npx tsx scripts/register_tables.ts --reset     drop the views and database, then recreate
+//   npx tsx scripts/register_tables.ts --cache-only  only re-warm the view caches
+//
+// The REST tables re-fetch and re-parse the JSON on every query (40-60 s each), so the views
+// are cached at the end. CACHE TABLE is a session cache with no confirmed TTL, and replacing a
+// view drops its cache, so re-run with --cache-only when queries become slow again.
 import "dotenv/config";
 import { runSql, ZetarisError } from "../src/data/zetaris.js";
 
@@ -66,6 +71,7 @@ const statements = {
     view("sections", "sections_raw", SECTION_COLUMNS),
     view("acts", "acts_raw", ACT_COLUMNS),
   ],
+  caches: [`CACHE TABLE ${CONTAINER}.sections`, `CACHE TABLE ${CONTAINER}.acts`],
   resetDrops: [`DROP VIEW ${CONTAINER}.sections`, `DROP VIEW ${CONTAINER}.acts`, `DROP LIGHTNING DATABASE ${DB}`],
 };
 
@@ -93,12 +99,24 @@ function dryRun(reset: boolean): void {
   console.log(`${statements.container};\n`);
   for (const t of statements.tables) console.log(`${t.sql};\n`);
   for (const v of statements.views) console.log(`${v};\n`);
+  for (const c of statements.caches) console.log(`${c};\n`);
+}
+
+const CACHE_TIMEOUT_MS = 180_000; // one cold fetch and parse of the JSON took about 60 s
+
+async function warmCaches(): Promise<void> {
+  for (const c of statements.caches) {
+    const t = Date.now();
+    await runSql(c, { timeoutMs: CACHE_TIMEOUT_MS, retries: 1 });
+    console.log(`cached  ${c.replace("CACHE TABLE ", "")} (${Math.round((Date.now() - t) / 1000)} s)`);
+  }
 }
 
 async function main(): Promise<void> {
   const args = new Set(process.argv.slice(2));
   const reset = args.has("--reset");
   if (args.has("--dry-run")) return dryRun(reset);
+  if (args.has("--cache-only")) return warmCaches();
 
   if (reset) {
     // SQL cannot drop a container; only the views and the Lightning database (with its tables) go.
@@ -135,6 +153,7 @@ async function main(): Promise<void> {
     await runSql(v); // CREATE OR REPLACE: safe to repeat
     console.log(`ensured view ${CONTAINER}.${v.match(/VIEW (\w+)/)?.[1]}`);
   }
+  await warmCaches();
 }
 
 main().catch((err) => {
