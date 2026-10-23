@@ -6,7 +6,7 @@ import { runSql } from "../data/zetaris.js";
 import type { RunMemory, ScoredMemoryEntry } from "../engines/types.js";
 import { chat, type ChatMessage, type Receipt, type ToolCall, type ToolDefinition } from "../providers/meterless.js";
 import { findPart, formatToc, tocEntries } from "./toc.js";
-import type { Draft, Profile, ResearchResult, TraceStep } from "./types.js";
+import type { Draft, Profile, ResearchResult, SectionRead, TraceStep } from "./types.js";
 
 export const MAX_TURNS = 8;
 const SQL_ROW_LIMIT = 40;
@@ -346,13 +346,45 @@ export function canonicalSql(sql: string): string {
   return `${m[1]}${[...new Set(terms)].sort().join(" or ")}${m[3] ?? ""}`;
 }
 
-const NOTE_ID_RE = /\b(NTA|NTAA|NRSEA|JRBEA)\s*[‐-―−-]\s*2025\s*[‐-―−-]\s*s(\d+)\b/gi;
+const DASH = "[‐-―−-]"; // hyphen, non-breaking hyphen, en/em dashes, minus
+const NOTE_ID_RE = new RegExp(`\\b(NTA|NTAA|NRSEA|JRBEA)\\s*${DASH}\\s*2025\\s*${DASH}\\s*s(\\d+)\\b`, "gi");
+const NOTE_RANGE_RE = new RegExp(`\\bs(\\d+)\\s*${DASH}\\s*s?(\\d+)\\b`, "gi");
+const NOTE_ACT_RE = /\b(NTA|NTAA|NRSEA|JRBEA)\b/gi;
 
-/** Replaces any note that names a section_id the run did not read in full. */
+/** Section numbers per Act, from the parsed sections. */
+function actSections(): Map<string, Set<number>> {
+  const out = new Map<string, Set<number>>();
+  for (const e of tocEntries()) {
+    const set = out.get(e.act_id) ?? new Set<number>();
+    for (let n = e.first; n <= e.last; n++) set.add(n);
+    out.set(e.act_id, set);
+  }
+  return out;
+}
+
+/** True when every section in a range like "s143-s150" was read, in the Act named before it or, if none is named, in some Act. */
+function rangeRead(note: string, at: number, lo: number, hi: number, fetched: Set<string>): boolean {
+  const acts = actSections();
+  const named = [...note.slice(0, at).matchAll(NOTE_ACT_RE)].at(-1)?.[1]?.toUpperCase();
+  const candidates = named ? [`${named}-2025`] : [...acts.keys()];
+  return candidates.some((act) => {
+    const ids = [...(acts.get(act) ?? [])].filter((n) => n >= lo && n <= hi).map((n) => `${act}-s${n}`);
+    return ids.length > 0 && ids.every((id) => fetched.has(id));
+  });
+}
+
+/** Replaces any note that names a section_id, or a range of sections, the run did not read in full. */
 export function filterNotes(notes: string[], fetched: Set<string>): string[] {
   return notes.map((n) => {
     const ids = [...n.matchAll(NOTE_ID_RE)].map((m) => `${(m[1] ?? "").toUpperCase()}-2025-s${m[2]}`);
-    return ids.some((id) => !fetched.has(id)) ? "note removed: unread section" : n;
+    const ranges = [...n.matchAll(NOTE_RANGE_RE)].map((m) => {
+      const a = Number(m[1]);
+      const b = Number(m[2]);
+      return { at: m.index ?? 0, lo: Math.min(a, b), hi: Math.max(a, b) };
+    });
+    const unread =
+      ids.some((id) => !fetched.has(id)) || ranges.some((r) => !rangeRead(n, r.at, r.lo, r.hi, fetched));
+    return unread ? "note removed: unread section" : n;
   });
 }
 
@@ -380,24 +412,33 @@ export async function research(profile: Profile, question: string, memory: RunMe
   let toolsOff = false; // set for the revision turn that follows an agent fetch
   let draft: Draft | undefined;
   let fallback: Draft | undefined; // the pre-verification draft, if the revision cannot be parsed
-  const sqlResults = new Map<string, string>(); // canonicalSql -> tool result content
+  const sectionsRead: Record<string, SectionRead> = {};
+  const toolResults = new Map<string, string>(); // repeat key -> tool result content
   let repeats = 0;
-  let finalEarly = false; // set after MAX_REPEATS repeated queries
+  let finalEarly = false; // set after MAX_REPEATS repeated calls
 
-  /** A run_sql identical to an earlier one: answer from the earlier result instead of re-running it. */
+  /**
+   * The repeat key of a run_sql (canonicalSql) or get_sections (the id set, order-insensitive) call,
+   * with the earlier result if the same call already ran.
+   */
   function repeatOf(call: ToolCall): { key: string; earlier?: string } | undefined {
-    if (call.function.name !== "run_sql") return undefined;
-    let sql: unknown;
+    let args: Record<string, unknown>;
     try {
-      sql = (JSON.parse(call.function.arguments || "{}") as { sql?: unknown }).sql;
+      args = JSON.parse(call.function.arguments || "{}") as Record<string, unknown>;
     } catch {
       return undefined;
     }
-    if (typeof sql !== "string") return undefined;
-    const guard = guardSql(sql);
-    if (!guard.ok) return undefined;
-    const key = canonicalSql(guard.sql);
-    return { key, earlier: sqlResults.get(key) };
+    let key: string;
+    if (call.function.name === "run_sql" && typeof args.sql === "string") {
+      const guard = guardSql(args.sql);
+      if (!guard.ok) return undefined;
+      key = `sql:${canonicalSql(guard.sql)}`;
+    } else if (call.function.name === "get_sections" && Array.isArray(args.section_ids)) {
+      key = `get:${[...new Set(args.section_ids.map(String))].sort().join(",")}`;
+    } else {
+      return undefined;
+    }
+    return { key, earlier: toolResults.get(key) };
   }
 
   async function runTool(call: ToolCall, by: "model" | "agent"): Promise<ToolOutcome> {
@@ -410,12 +451,25 @@ export async function research(profile: Profile, question: string, memory: RunMe
     if (rep?.earlier !== undefined) {
       repeats++;
       if (repeats >= MAX_REPEATS) finalEarly = true;
-      const prior = JSON.parse(rep.earlier) as { row_count?: number };
-      trace.push({ kind: "tool_result", ts: now(), detail: { tool: "run_sql", repeat: repeats, row_count: prior.row_count ?? 0, by } });
-      return { content: `${REPEAT_PREFIX}\n${rep.earlier}`, detail: { tool: "run_sql", repeat: repeats }, rows: [] };
+      const prior = JSON.parse(rep.earlier) as { row_count?: number; sections?: unknown[] };
+      const rowCount = prior.row_count ?? prior.sections?.length ?? 0;
+      const tool = call.function.name;
+      trace.push({ kind: "tool_result", ts: now(), detail: { tool, repeat: repeats, row_count: rowCount, by } });
+      return { content: `${REPEAT_PREFIX}\n${rep.earlier}`, detail: { tool, repeat: repeats }, rows: [] };
     }
     const out = await execTool(call);
-    if (rep && !out.detail.error) sqlResults.set(rep.key, out.content);
+    if (rep && !out.detail.error) toolResults.set(rep.key, out.content);
+    if (call.function.name === "get_sections") {
+      for (const r of out.rows) {
+        if (typeof r.section_id !== "string") continue;
+        sectionsRead[r.section_id] = {
+          heading: String(r.heading ?? ""),
+          text: String(r.text ?? ""),
+          act_id: String(r.act_id ?? ""),
+          section_no: String(r.section_no ?? ""),
+        };
+      }
+    }
     trace.push({ kind: "tool_result", ts: now(), detail: { ...out.detail, by } });
     const ids = out.rows.map((r) => r.section_id).filter((x): x is string => typeof x === "string");
     ids.forEach((id) => seen.add(id));
@@ -444,7 +498,7 @@ export async function research(profile: Profile, question: string, memory: RunMe
     return out;
   }
 
-  // The final turn comes at MAX_TURNS, or earlier after MAX_REPEATS repeated queries. Every path on
+  // The final turn comes at MAX_TURNS, or earlier after MAX_REPEATS repeated tool calls. Every path on
   // it ends the loop except the single correction and the single
   // verification turn, so a run makes at most MAX_TURNS + 2 model calls.
   for (let turn = 1; ; turn++) {
@@ -579,5 +633,6 @@ export async function research(profile: Profile, question: string, memory: RunMe
     },
     trace,
     receipts,
+    sections_read: sectionsRead,
   };
 }

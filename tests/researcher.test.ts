@@ -162,7 +162,8 @@ describe("research", () => {
   it("sends no tools on the final turn and corrects a tool call made there", async () => {
     // turns 1-8 call tools (the 8th is ignored), the 9th is the correction reply
     chatMock.mockResolvedValueOnce(toolTurn("run_sql", { sql: "SELECT * FROM taxmap.sections" }));
-    for (let i = 1; i < 8; i++) chatMock.mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s9"] }));
+    // a different id set each turn, so get_sections repeat suppression does not end the run early
+    for (let i = 1; i < 8; i++) chatMock.mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s9", `NTA-2025-s${i}`] }));
     chatMock.mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9"])));
 
     const r = await research(profile, "q", new InMemoryRunMemory());

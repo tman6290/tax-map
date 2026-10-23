@@ -110,7 +110,45 @@ describe("repeat suppression", () => {
   });
 });
 
+describe("get_sections repeats and sections_read", () => {
+  it("answers a repeated id set (in any order) from the earlier result and returns sections_read", async () => {
+    sqlMock.mockResolvedValue({
+      columns: ["section_id", "act_id", "section_no", "heading", "tier", "text"],
+      rows: [
+        ["NTA-2025-s143", "NTA-2025", "143", "Imposition of VAT", "federal", "There is imposed a tax."],
+        ["NTA-2025-s147", "NTA-2025", "147", "Rate of VAT", "federal", "at the rate of 7.5%"],
+      ],
+    });
+    chatMock
+      .mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s143", "NTA-2025-s147"] }))
+      .mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s147", "NTA-2025-s143", "NTA-2025-s147"] }))
+      .mockResolvedValueOnce(textTurn(emptyDraft));
+
+    const r = await research(profile, "q", new InMemoryRunMemory());
+
+    expect(sqlMock).toHaveBeenCalledTimes(1);
+    expect(sentOn(2).messages.find((m) => m.role === "tool")?.content).toMatch(/^ALREADY RUN; use browse_part or get_sections instead\n/);
+    expect(r.sections_read["NTA-2025-s147"]).toEqual({ heading: "Rate of VAT", text: "at the rate of 7.5%", act_id: "NTA-2025", section_no: "147" });
+    expect(Object.keys(r.sections_read).sort()).toEqual(["NTA-2025-s143", "NTA-2025-s147"]);
+  });
+});
+
 describe("note filtering", () => {
+  it("expands ranges with any dash against the Act's section list", () => {
+    const read = new Set(["NTA-2025-s143", "NTA-2025-s144", "NTA-2025-s145"]);
+    expect(
+      filterNotes(
+        [
+          "Read NTA-2025 s143-s145 in full.",
+          "Read s143–s145.", // no Act named: passes if some Act has the whole range read
+          "Read NTA-2025 s143‑s150.",
+          "Read NTAA-2025 s143-s145.",
+        ],
+        read,
+      ),
+    ).toEqual(["Read NTA-2025 s143-s145 in full.", "Read s143–s145.", "note removed: unread section", "note removed: unread section"]);
+  });
+
   it("replaces notes naming a section that was not read in full, including non-ASCII hyphens", () => {
     const fetched = new Set(["NTAA-2025-s22"]);
     expect(

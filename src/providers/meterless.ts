@@ -42,6 +42,8 @@ export interface ChatOptions {
   temperature?: number;
   max_tokens?: number;
   app?: string;
+  /** Overrides METERLESS_MODEL for this call; the router may still answer with another model. */
+  model?: string;
 }
 
 export interface ChatResult {
@@ -102,7 +104,7 @@ export async function chat(opts: ChatOptions, runtime: ChatRuntimeOptions = {}):
   const { timeoutMs = DEFAULT_TIMEOUT_MS, retries = DEFAULT_RETRIES, backoffMs = DEFAULT_BACKOFF_MS } = runtime;
   const base = process.env.METERLESS_BASE_URL?.replace(/\/$/, "");
   const token = process.env.METERLESS_RUNTIME_TOKEN ?? "";
-  const model = process.env.METERLESS_MODEL;
+  const model = opts.model ?? process.env.METERLESS_MODEL;
   if (!base || !token || !model) {
     throw new Error("METERLESS_BASE_URL, METERLESS_RUNTIME_TOKEN and METERLESS_MODEL must be set in .env");
   }
