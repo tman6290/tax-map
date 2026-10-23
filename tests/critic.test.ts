@@ -104,7 +104,7 @@ describe("critique", () => {
     expect(r.checked[0]).toMatchObject({ verdict: "struck", reason: "critic output unparseable" });
   });
 
-  it("strikes a claim when the critic call fails, and goes on to the next claim", async () => {
+  it("marks a claim unchecked (not struck) when the critic call fails, and goes on to the next claim", async () => {
     chatMock
       .mockRejectedValueOnce(new Error("Meterless server error: HTTP 502"))
       .mockResolvedValueOnce(reply({ verdict: "supported", reason: "ok", quote: "at the rate of 7.5%", qualifier: null }));
@@ -114,7 +114,7 @@ describe("critique", () => {
       profile,
       new InMemoryWorldModel(),
     );
-    expect(r.checked.map((c) => c.verdict)).toEqual(["struck", "supported"]);
+    expect(r.checked.map((c) => c.verdict)).toEqual(["unchecked", "supported"]);
     expect(r.checked[0]?.reason).toBe("critic call failed: Meterless server error: HTTP 502");
     expect(r.checked[0]?.receipt).toBeNull();
   });
@@ -123,7 +123,9 @@ describe("critique", () => {
     chatMock
       .mockResolvedValueOnce(reply({ verdict: "supported", reason: "ok", quote: "at the rate of 7.5%", qualifier: null }))
       .mockResolvedValueOnce(reply("not json"))
-      .mockResolvedValueOnce(reply({ verdict: "struck", reason: "disapplied", quote: "shall not apply to a small business", qualifier: null }));
+      .mockResolvedValueOnce(reply({ verdict: "struck", reason: "disapplied", quote: "shall not apply to a small business", qualifier: null, struck_because: "disapplies" }))
+      // c2 cites two sections, so it is judged in two pieces; the disapplying piece decides
+      .mockResolvedValueOnce(reply({ verdict: "supported", reason: "rate", quote: "at the rate of 7.5%", qualifier: null }));
     const world = new InMemoryWorldModel();
 
     const r = await critique(
@@ -139,10 +141,10 @@ describe("critique", () => {
       "c2:NTAA-2025-s22:struck",
       "c2:NTA-2025-s147:struck",
     ]);
-    expect(facts[1]).toMatchObject({ act_id: "NTAA-2025", section_no: "22", text: S22, reason: "disapplied" });
+    expect(facts[1]).toMatchObject({ act_id: "NTAA-2025", section_no: "22", text: S22, reason: "[NTAA-2025-s22] disapplied" });
     expect(await world.getFacts({ verdict: "struck" })).toHaveLength(2);
-    expect(r.receipts).toHaveLength(3);
+    expect(r.receipts).toHaveLength(4);
     expect(r.checked[1]?.receipt?.receipt_id).toBe(r.receipts[2]?.receipt_id);
-    expect(r.trace.filter((t) => t.kind === "model_turn")).toHaveLength(3);
+    expect(r.trace.filter((t) => t.kind === "model_turn")).toHaveLength(4);
   });
 });

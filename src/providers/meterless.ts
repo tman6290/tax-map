@@ -44,6 +44,8 @@ export interface ChatOptions {
   app?: string;
   /** Overrides METERLESS_MODEL for this call; the router may still answer with another model. */
   model?: string;
+  /** Extra top-level request fields passed through to the gateway, e.g. chat_template_kwargs. */
+  extra_body?: Record<string, unknown>;
 }
 
 export interface ChatResult {
@@ -117,6 +119,7 @@ export async function chat(opts: ChatOptions, runtime: ChatRuntimeOptions = {}):
     ...(opts.max_tokens !== undefined ? { max_tokens: opts.max_tokens } : {}),
     ...(opts.tools ? { tools: opts.tools } : {}),
     ...(opts.tool_choice !== undefined ? { tool_choice: opts.tool_choice } : {}),
+    ...(opts.extra_body ?? {}),
   };
 
   let lastError: Error | undefined;

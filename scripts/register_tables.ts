@@ -7,9 +7,10 @@
 //   npx tsx scripts/register_tables.ts --cache-only  only re-warm the view caches
 //
 // The REST tables re-fetch and re-parse the JSON on every query (40-60 s each), so the views
-// are cached at the end. CACHE TABLE is a session cache with no confirmed TTL, and replacing a
-// view drops its cache, so re-run with --cache-only when queries become slow again.
+// are cached at the end. The cache does not survive a Zetaris container restart, and replacing a
+// view drops it; the server and the pipeline re-warm it via src/data/warm.ts on start.
 import "dotenv/config";
+import { CACHED_VIEWS, warmCache } from "../src/data/warm.js";
 import { runSql, ZetarisError } from "../src/data/zetaris.js";
 
 const REPO = "tman6290/tax-map";
@@ -71,7 +72,7 @@ const statements = {
     view("sections", "sections_raw", SECTION_COLUMNS),
     view("acts", "acts_raw", ACT_COLUMNS),
   ],
-  caches: [`CACHE TABLE ${CONTAINER}.sections`, `CACHE TABLE ${CONTAINER}.acts`],
+  caches: CACHED_VIEWS.map((v) => `CACHE TABLE ${v}`), // run by warmCache(); listed here for --dry-run
   resetDrops: [`DROP VIEW ${CONTAINER}.sections`, `DROP VIEW ${CONTAINER}.acts`, `DROP LIGHTNING DATABASE ${DB}`],
 };
 
@@ -102,14 +103,8 @@ function dryRun(reset: boolean): void {
   for (const c of statements.caches) console.log(`${c};\n`);
 }
 
-const CACHE_TIMEOUT_MS = 180_000; // one cold fetch and parse of the JSON took about 60 s
-
 async function warmCaches(): Promise<void> {
-  for (const c of statements.caches) {
-    const t = Date.now();
-    await runSql(c, { timeoutMs: CACHE_TIMEOUT_MS, retries: 1 });
-    console.log(`cached  ${c.replace("CACHE TABLE ", "")} (${Math.round((Date.now() - t) / 1000)} s)`);
-  }
+  for (const w of await warmCache()) console.log(`cached  ${w.view} (${(w.ms / 1000).toFixed(1)} s)`);
 }
 
 async function main(): Promise<void> {

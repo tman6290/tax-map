@@ -4,6 +4,7 @@ import "dotenv/config";
 import { critique } from "../src/agents/critic.js";
 import { research } from "../src/agents/researcher.js";
 import type { Profile } from "../src/agents/types.js";
+import { warmCache } from "../src/data/warm.js";
 import { InMemoryRunMemory } from "../src/engines/hmem/index.js";
 import { InMemoryWorldModel } from "../src/engines/world_model/index.js";
 
@@ -18,6 +19,10 @@ const profile: Profile = {
   has_signage: true,
 };
 const question = process.argv[2] ?? "What taxes and levies does my shop have to pay?";
+
+const warmStart = Date.now();
+const warmed = await warmCache();
+console.log(`zetaris cache warmed in ${Date.now() - warmStart} ms (${warmed.map((w) => `${w.view} ${w.ms} ms`).join(", ")})`);
 
 const res = await research(profile, question, new InMemoryRunMemory());
 console.log(`research: ${res.draft.claims.length} claims, ${Object.keys(res.sections_read).length} sections read`);
@@ -39,6 +44,6 @@ const count = (v: string) => crit.checked.filter((c) => c.verdict === v).length;
 const all = [...res.receipts, ...crit.receipts];
 const tokens = all.reduce((n, r) => n + r.input_tokens + r.output_tokens, 0);
 console.log("");
-console.log(`supported ${count("supported")}, qualified ${count("qualified")}, struck ${count("struck")}`);
+console.log(`supported ${count("supported")}, qualified ${count("qualified")}, struck ${count("struck")}, unchecked ${count("unchecked")}`);
 console.log(`receipts: ${all.length} (${all.filter((r) => r.signed).length} signed): researcher ${res.receipts.length}, critic ${crit.receipts.length}`);
 console.log(`tokens: ${tokens} total across both agents`);

@@ -47,7 +47,8 @@ export interface ResearchResult {
   sections_read: Record<string, SectionRead>;
 }
 
-export type Verdict = "supported" | "qualified" | "struck";
+/** "unchecked": the Critic call failed after retries, so the claim could not be verified (not a rejection). */
+export type Verdict = "supported" | "qualified" | "struck" | "unchecked";
 
 export interface CheckedClaim {
   claim: Claim;

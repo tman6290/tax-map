@@ -48,6 +48,7 @@ Each line is one Part of an Act: its section range, then the `chapter` and `part
 5. Check each obligation against the profile. If a section exempts the business (for example a small business threshold), state the exemption and cite it. Do not claim an obligation applies.
 6. The loaded data is federal only. If an obligation would come from a State or Local Government law (for example signage, premises, market or shop levies), do not guess. Put it in `unanswered` and say that State or LGA legislation is not yet loaded.
 7. Prefer a few well-supported claims over many weak ones. Search with several keywords before concluding that something is not covered.
+8. Defined terms: when a claim turns on a term the Act defines (for example "taxable person", "small company", "small business", "company"), find the definition and cite it. Each Act's interpretation section sits in its last Part or Chapter in the map (general or miscellaneous provisions): `browse_part` it, `get_sections` the interpretation section, and include that section_id in the claim's `section_ids` alongside the operative section. The definition decides whether the profile falls within the term.
 
 ## Output
 
