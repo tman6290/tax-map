@@ -352,22 +352,27 @@ a:active,
   border-left-color: var(--unchecked);
 }
 
-.claim summary {
-  list-style: none;
-  cursor: pointer;
-  padding: 16px 18px;
+.claim {
+  padding: 16px 18px 14px;
 }
 
-.claim summary::-webkit-details-marker {
-  display: none;
-}
-
-.claim-head {
+.claim-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 8px 18px;
+  margin-top: 10px;
+}
+
+.chip-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.open-law {
+  margin: 6px 0 0;
+  font-size: 0.95rem;
 }
 
 .chip {
@@ -404,23 +409,10 @@ a:active,
   font-size: 0.875rem;
 }
 
-.claim-toggle {
-  margin-left: auto;
-  color: var(--accent);
-  font-size: 0.875rem;
-}
-
-.claim-toggle::before {
-  content: "Details ▸";
-}
-
-.claim[open] .claim-toggle::before {
-  content: "Hide ▾";
-}
-
 .claim-text {
-  margin: 0 0 6px;
-  font-size: 1.05rem;
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  font-family: var(--serif);
 }
 
 .claim.v-struck .claim-text {
@@ -435,9 +427,25 @@ a:active,
   color: var(--muted);
 }
 
-.claim-body {
+.claim-more {
+  margin-top: 12px;
   border-top: 1px solid var(--rule);
-  padding: 4px 18px 18px;
+}
+
+.claim-more > summary {
+  cursor: pointer;
+  padding: 10px 0 4px;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.claim-more > summary:hover {
+  color: var(--accent-dark);
+}
+
+.claim-body {
+  padding: 0 0 4px;
 }
 
 .claim-body h4 {
@@ -464,15 +472,6 @@ blockquote {
 .reason,
 .qualifier {
   margin: 0;
-}
-
-.section-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
 }
 
 .block {
@@ -640,6 +639,92 @@ th.num {
   font-size: 0.9rem;
 }
 
+/* help tooltips */
+.label-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.label-row label {
+  margin-bottom: 0;
+}
+
+legend .help {
+  margin-left: 4px;
+}
+
+.help {
+  position: relative;
+  display: inline-block;
+  vertical-align: middle;
+  margin-left: 3px;
+}
+
+.help-btn {
+  display: inline-grid;
+  place-items: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  padding: 0;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  background: var(--panel);
+  color: var(--accent);
+  font: 700 0.72rem/1 var(--sans);
+  cursor: help;
+}
+
+.help-btn:hover,
+.help-btn[aria-expanded="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.help-tip {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 10px 12px;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--rule-strong);
+  border-left: 4px solid var(--accent);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+  font: 400 0.9rem/1.45 var(--sans);
+  text-align: left;
+  text-transform: none;
+  letter-spacing: normal;
+  text-decoration: none;
+  white-space: normal;
+}
+
+.help-tip[hidden] {
+  display: none;
+}
+
+.help-part {
+  display: block;
+}
+
+.help-part + .help-part {
+  margin-top: 8px;
+}
+
+.help-law {
+  font-size: 0.9rem;
+}
+
+.working-intro {
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
 @media (max-width: 640px) {
   h1 {
     font-size: 1.9rem;
@@ -654,8 +739,7 @@ th.num {
     padding: 18px 16px;
   }
 
-  .claim summary,
-  .claim-body {
+  .claim {
     padding-left: 14px;
     padding-right: 14px;
   }

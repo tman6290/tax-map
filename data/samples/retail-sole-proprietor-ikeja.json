@@ -1,6 +1,6 @@
 {
   "name": "retail-sole-proprietor-ikeja",
-  "recorded_at": "2026-10-24T09:50:59.719Z",
+  "recorded_at": "2026-10-24T14:25:04.898Z",
   "profile": {
     "business_type": "sole_proprietor",
     "sector": "retail",
@@ -16,7 +16,7 @@
   "events": [
     {
       "type": "status",
-      "ts": "2026-10-24T09:40:10.643Z",
+      "ts": "2026-10-24T14:08:49.145Z",
       "agent": "system",
       "text": "Researcher started",
       "data": null,
@@ -24,22 +24,22 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:15.164Z",
+      "ts": "2026-10-24T14:08:54.545Z",
       "agent": "researcher",
-      "text": "Researcher turn 1: run_sql",
+      "text": "",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:40:15.164Z",
+        "ts": "2026-10-24T14:08:54.545Z",
         "detail": {
           "turn": 1,
           "tool_calls": [
-            "run_sql"
+            "browse_part"
           ],
-          "content": ""
+          "content": "I'll analyze this business profile against the loaded Nigerian tax statutes. Let me start by exploring the Acts structure and finding relevant provisions.\n"
         },
         "receipt": {
-          "receipt_id": "rcpt_req_4m7cug93",
-          "decision_id": "req_4m7cug93",
+          "receipt_id": "rcpt_req_xnnmcxx0",
+          "decision_id": "req_xnnmcxx0",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
@@ -47,8 +47,8 @@
           "tier": "A",
           "kind": "cloud",
           "input_tokens": 4979,
-          "output_tokens": 379,
-          "latency_ms": 4475,
+          "output_tokens": 365,
+          "latency_ms": 5362,
           "signed": true
         }
       },
@@ -56,16 +56,16 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:15.165Z",
+      "ts": "2026-10-24T14:08:54.545Z",
       "agent": "researcher",
-      "text": "Researcher calls run_sql",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:40:15.165Z",
+        "ts": "2026-10-24T14:08:54.545Z",
         "detail": {
-          "id": "call-b7496bb4-0257-4a3c-b5da-7c6f78fba2c8",
-          "name": "run_sql",
-          "arguments": "{\"sql\":\"SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small business%' OR lower(text) LIKE '%small business%') LIMIT 20\"}",
+          "id": "call-41b89cb6-e6ba-43fc-bf08-51f35a5dc45c",
+          "name": "browse_part",
+          "arguments": "{\"part\":\"(none)\",\"act_id\":\"NTA-2025\",\"chapter\":\"CHAPTER ONE – OBJECTIVE AND APPLICATION\"}",
           "by": "model"
         }
       },
@@ -73,17 +73,17 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:15.517Z",
+      "ts": "2026-10-24T14:08:55.041Z",
       "agent": "researcher",
-      "text": "Researcher queried taxmap.sections: 0 rows",
+      "text": "Researcher: browse_part NTA-2025 CHAPTER ONE – OBJECTIVE AND APPLICATION (none), 2 sections",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:40:15.517Z",
+        "ts": "2026-10-24T14:08:55.041Z",
         "detail": {
-          "tool": "run_sql",
-          "sql_requested": "SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small business%' OR lower(text) LIKE '%small business%') LIMIT 20",
-          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small business%' OR lower(text) LIKE '%small business%') LIMIT 20",
-          "row_count": 0,
+          "tool": "browse_part",
+          "requested": "NTA-2025 CHAPTER ONE – OBJECTIVE AND APPLICATION (none)",
+          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTA-2025' AND chapter = 'CHAPTER ONE – OBJECTIVE AND APPLICATION' AND part IS NULL ORDER BY CAST(section_no AS INT)",
+          "row_count": 2,
           "by": "model"
         }
       },
@@ -91,31 +91,31 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:17.328Z",
+      "ts": "2026-10-24T14:08:56.500Z",
       "agent": "researcher",
-      "text": "Researcher turn 2: run_sql",
+      "text": "",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:40:17.328Z",
+        "ts": "2026-10-24T14:08:56.500Z",
         "detail": {
           "turn": 2,
           "tool_calls": [
-            "run_sql"
+            "browse_part"
           ],
           "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_dttcm4k1",
-          "decision_id": "req_dttcm4k1",
+          "receipt_id": "rcpt_req_y4dsy66f",
+          "decision_id": "req_y4dsy66f",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 5253,
-          "output_tokens": 106,
-          "latency_ms": 1770,
+          "input_tokens": 5941,
+          "output_tokens": 115,
+          "latency_ms": 1372,
           "signed": true
         }
       },
@@ -123,16 +123,16 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:17.328Z",
+      "ts": "2026-10-24T14:08:56.500Z",
       "agent": "researcher",
-      "text": "Researcher calls run_sql",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:40:17.328Z",
+        "ts": "2026-10-24T14:08:56.500Z",
         "detail": {
-          "id": "call-f6e7e222-8a36-42f3-986e-1185badc84a2",
-          "name": "run_sql",
-          "arguments": "{\"sql\":\"SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small company%' OR lower(text) LIKE '%small company%') LIMIT 20\"}",
+          "id": "call-6a689b29-7d55-4b0d-b0f4-2c5c4d611af1",
+          "name": "browse_part",
+          "arguments": "{\"part\":\"PART II – REGISTRATION\",\"act_id\":\"NTAA-2025\",\"chapter\":\"CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES\"}",
           "by": "model"
         }
       },
@@ -140,17 +140,17 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:17.608Z",
+      "ts": "2026-10-24T14:08:56.667Z",
       "agent": "researcher",
-      "text": "Researcher queried taxmap.sections: 2 rows",
+      "text": "Researcher: browse_part NTAA-2025 CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES PART II – REGISTRATION, 6 sections",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:40:17.608Z",
+        "ts": "2026-10-24T14:08:56.667Z",
         "detail": {
-          "tool": "run_sql",
-          "sql_requested": "SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small company%' OR lower(text) LIKE '%small company%') LIMIT 20",
-          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small company%' OR lower(text) LIKE '%small company%') LIMIT 20",
-          "row_count": 2,
+          "tool": "browse_part",
+          "requested": "NTAA-2025 CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES PART II – REGISTRATION",
+          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTAA-2025' AND chapter = 'CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES' AND part = 'PART II – REGISTRATION' ORDER BY CAST(section_no AS INT)",
+          "row_count": 6,
           "by": "model"
         }
       },
@@ -158,12 +158,12 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:18.654Z",
+      "ts": "2026-10-24T14:08:57.951Z",
       "agent": "researcher",
-      "text": "Researcher turn 3: get_sections",
+      "text": "",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:40:18.654Z",
+        "ts": "2026-10-24T14:08:57.951Z",
         "detail": {
           "turn": 3,
           "tool_calls": [
@@ -172,17 +172,17 @@
           "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_548peupi",
-          "decision_id": "req_548peupi",
+          "receipt_id": "rcpt_req_wfb6m6nh",
+          "decision_id": "req_wfb6m6nh",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 5734,
-          "output_tokens": 61,
-          "latency_ms": 1008,
+          "input_tokens": 6152,
+          "output_tokens": 103,
+          "latency_ms": 1240,
           "signed": true
         }
       },
@@ -190,16 +190,16 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:18.655Z",
+      "ts": "2026-10-24T14:08:57.951Z",
       "agent": "researcher",
-      "text": "Researcher calls get_sections",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:40:18.655Z",
+        "ts": "2026-10-24T14:08:57.951Z",
         "detail": {
-          "id": "call-54d68d47-ba53-46fb-9647-e40ba8aec3dc",
+          "id": "call-dbc8d8a9-a72a-4ba3-a8ac-276bd901ee7c",
           "name": "get_sections",
-          "arguments": "{\"section_ids\":[\"NTA-2025-s201\"]}",
+          "arguments": "{\"section_ids\":[\"NTAA-2025-s4\",\"NTAA-2025-s5\",\"NTAA-2025-s7\",\"NTAA-2025-s8\",\"NTAA-2025-s9\"]}",
           "by": "model"
         }
       },
@@ -207,12 +207,220 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:18.948Z",
+      "ts": "2026-10-24T14:08:58.125Z",
       "agent": "researcher",
-      "text": "Read NTA-2025-s201 in full",
+      "text": "Researcher: get_sections NTAA-2025-s4 … and 4 more",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:40:18.948Z",
+        "ts": "2026-10-24T14:08:58.125Z",
+        "detail": {
+          "tool": "get_sections",
+          "requested": [
+            "NTAA-2025-s4",
+            "NTAA-2025-s5",
+            "NTAA-2025-s7",
+            "NTAA-2025-s8",
+            "NTAA-2025-s9"
+          ],
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTAA-2025-s4', 'NTAA-2025-s5', 'NTAA-2025-s7', 'NTAA-2025-s8', 'NTAA-2025-s9')",
+          "row_count": 5,
+          "not_found": [],
+          "by": "model"
+        }
+      },
+      "seq": 10
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:08:59.501Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:08:59.501Z",
+        "detail": {
+          "turn": 4,
+          "tool_calls": [
+            "run_sql"
+          ],
+          "content": ""
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_f4y0xf3x",
+          "decision_id": "req_f4y0xf3x",
+          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "provider": "nvidia",
+          "label": "Nemotron 3.5 Lightning 30B A3B",
+          "tier": "A",
+          "kind": "cloud",
+          "input_tokens": 6820,
+          "output_tokens": 104,
+          "latency_ms": 1326,
+          "signed": true
+        }
+      },
+      "seq": 11
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:08:59.501Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:08:59.501Z",
+        "detail": {
+          "id": "call-ef614eb5-54d3-4b69-9b94-92e313cd4ec3",
+          "name": "run_sql",
+          "arguments": "{\"sql\":\"SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE lower(text) LIKE '%small business%' OR lower(heading) LIKE '%small business%' LIMIT 40\"}",
+          "by": "model"
+        }
+      },
+      "seq": 12
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:08:59.687Z",
+      "agent": "researcher",
+      "text": "Researcher: run_sql on taxmap.sections, 2 rows",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:08:59.687Z",
+        "detail": {
+          "tool": "run_sql",
+          "sql_requested": "SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE lower(text) LIKE '%small business%' OR lower(heading) LIKE '%small business%' LIMIT 40",
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE lower(text) LIKE '%small business%' OR lower(heading) LIKE '%small business%' LIMIT 40",
+          "row_count": 2,
+          "by": "model"
+        }
+      },
+      "seq": 13
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:01.402Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:09:01.402Z",
+        "detail": {
+          "turn": 5,
+          "tool_calls": [
+            "run_sql"
+          ],
+          "content": ""
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_boasowxs",
+          "decision_id": "req_boasowxs",
+          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "provider": "nvidia",
+          "label": "Nemotron 3.5 Lightning 30B A3B",
+          "tier": "A",
+          "kind": "cloud",
+          "input_tokens": 6360,
+          "output_tokens": 136,
+          "latency_ms": 1664,
+          "signed": true
+        }
+      },
+      "seq": 14
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:01.402Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:09:01.402Z",
+        "detail": {
+          "id": "call-0238a555-0026-4461-9ccf-c8496b8dc890",
+          "name": "run_sql",
+          "arguments": "{\"sql\":\"SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE lower(text) LIKE '%small company%' OR lower(heading) LIKE '%small company%' LIMIT 40\"}",
+          "by": "model"
+        }
+      },
+      "seq": 15
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:01.622Z",
+      "agent": "researcher",
+      "text": "Researcher: run_sql on taxmap.sections, 4 rows",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:09:01.622Z",
+        "detail": {
+          "tool": "run_sql",
+          "sql_requested": "SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE lower(text) LIKE '%small company%' OR lower(heading) LIKE '%small company%' LIMIT 40",
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE lower(text) LIKE '%small company%' OR lower(heading) LIKE '%small company%' LIMIT 40",
+          "row_count": 4,
+          "by": "model"
+        }
+      },
+      "seq": 16
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:02.985Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:09:02.985Z",
+        "detail": {
+          "turn": 6,
+          "tool_calls": [
+            "get_sections"
+          ],
+          "content": ""
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_gfx3vvnb",
+          "decision_id": "req_gfx3vvnb",
+          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "provider": "nvidia",
+          "label": "Nemotron 3.5 Lightning 30B A3B",
+          "tier": "A",
+          "kind": "cloud",
+          "input_tokens": 6761,
+          "output_tokens": 89,
+          "latency_ms": 1314,
+          "signed": true
+        }
+      },
+      "seq": 17
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:02.985Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:09:02.985Z",
+        "detail": {
+          "id": "call-7ba76cf1-1743-4e86-b148-846bbdcddcd4",
+          "name": "get_sections",
+          "arguments": "{\"section_ids\":[\"NTA-2025-s201\"]}",
+          "by": "model"
+        }
+      },
+      "seq": 18
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:03.172Z",
+      "agent": "researcher",
+      "text": "Researcher: get_sections NTA-2025-s201",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:09:03.172Z",
         "detail": {
           "tool": "get_sections",
           "requested": [
@@ -224,65 +432,65 @@
           "by": "model"
         }
       },
-      "seq": 10
+      "seq": 19
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:26.827Z",
+      "ts": "2026-10-24T14:09:07.032Z",
       "agent": "researcher",
-      "text": "Researcher turn 4: browse_part",
+      "text": "",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:40:26.827Z",
+        "ts": "2026-10-24T14:09:07.032Z",
         "detail": {
-          "turn": 4,
+          "turn": 7,
           "tool_calls": [
             "browse_part"
           ],
-          "content": "Now I have the definition of \"small company\" from NTA-2025-s201: a business that earns gross turnover of N100,000,000 or less per annum with total fixed assets not exceeding N250,000,000. The profile's turnover (under N25m) and fixed assets (under N250m) qualify it as a small company.\n\nLet me search"
+          "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_7axx5xiv",
-          "decision_id": "req_7axx5xiv",
+          "receipt_id": "rcpt_req_ir6mczkd",
+          "decision_id": "req_ir6mczkd",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 9886,
-          "output_tokens": 639,
-          "latency_ms": 7835,
+          "input_tokens": 10567,
+          "output_tokens": 378,
+          "latency_ms": 3808,
           "signed": true
         }
       },
-      "seq": 11
+      "seq": 20
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:26.827Z",
+      "ts": "2026-10-24T14:09:07.032Z",
       "agent": "researcher",
-      "text": "Researcher calls browse_part",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:40:26.827Z",
+        "ts": "2026-10-24T14:09:07.032Z",
         "detail": {
-          "id": "call-54c971a2-d1a6-49e0-a822-a7e7ba204f99",
+          "id": "call-d75e0dff-bac3-4b81-869d-15ac77cb08d4",
           "name": "browse_part",
-          "arguments": "{\"part\":\"PART I – IMPOSITION OF VALUE ADDED TAX\",\"act_id\":\"NTA-2025\",\"chapter\":\"CHAPTER SIX VALUE ADDED TAX\"}",
+          "arguments": "{\"part\":\"PART I – IMPOSITION OF VALUE ADDED TAX\",\"chapter\":\"CHAPTER SIX VALUE ADDED TAX\",\"act_id\":\"NTA-2025\"}",
           "by": "model"
         }
       },
-      "seq": 12
+      "seq": 21
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:27.144Z",
+      "ts": "2026-10-24T14:09:07.246Z",
       "agent": "researcher",
-      "text": "Researcher browsed NTA-2025 CHAPTER SIX VALUE ADDED TAX PART I – IMPOSITION OF VALUE ADDED TAX: 8 sections",
+      "text": "Researcher: browse_part NTA-2025 CHAPTER SIX VALUE ADDED TAX PART I – IMPOSITION OF VALUE ADDED TAX, 8 sections",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:40:27.144Z",
+        "ts": "2026-10-24T14:09:07.246Z",
         "detail": {
           "tool": "browse_part",
           "requested": "NTA-2025 CHAPTER SIX VALUE ADDED TAX PART I – IMPOSITION OF VALUE ADDED TAX",
@@ -291,242 +499,35 @@
           "by": "model"
         }
       },
-      "seq": 13
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:28.870Z",
-      "agent": "researcher",
-      "text": "Researcher turn 5: get_sections",
-      "data": {
-        "kind": "model_turn",
-        "ts": "2026-10-24T09:40:28.870Z",
-        "detail": {
-          "turn": 5,
-          "tool_calls": [
-            "get_sections"
-          ],
-          "content": ""
-        },
-        "receipt": {
-          "receipt_id": "rcpt_req_ov8gldcr",
-          "decision_id": "req_ov8gldcr",
-          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "provider": "nvidia",
-          "label": "Nemotron 3.5 Lightning 30B A3B",
-          "tier": "A",
-          "kind": "cloud",
-          "input_tokens": 6139,
-          "output_tokens": 148,
-          "latency_ms": 1692,
-          "signed": true
-        }
-      },
-      "seq": 14
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:28.870Z",
-      "agent": "researcher",
-      "text": "Researcher calls get_sections",
-      "data": {
-        "kind": "tool_call",
-        "ts": "2026-10-24T09:40:28.870Z",
-        "detail": {
-          "id": "call-00c51dfa-748e-4188-a62c-ec4ff41dcf3f",
-          "name": "get_sections",
-          "arguments": "{\"section_ids\":[\"NTA-2025-s143\",\"NTA-2025-s144\",\"NTA-2025-s145\",\"NTA-2025-s146\",\"NTA-2025-s147\",\"NTA-2025-s148\",\"NTA-2025-s149\",\"NTA-2025-s150\"]}",
-          "by": "model"
-        }
-      },
-      "seq": 15
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:29.158Z",
-      "agent": "researcher",
-      "text": "Read NTA-2025-s143, NTA-2025-s144, NTA-2025-s145, NTA-2025-s146 and 4 more in full",
-      "data": {
-        "kind": "tool_result",
-        "ts": "2026-10-24T09:40:29.158Z",
-        "detail": {
-          "tool": "get_sections",
-          "requested": [
-            "NTA-2025-s143",
-            "NTA-2025-s144",
-            "NTA-2025-s145",
-            "NTA-2025-s146",
-            "NTA-2025-s147",
-            "NTA-2025-s148",
-            "NTA-2025-s149",
-            "NTA-2025-s150"
-          ],
-          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTA-2025-s143', 'NTA-2025-s144', 'NTA-2025-s145', 'NTA-2025-s146', 'NTA-2025-s147', 'NTA-2025-s148', 'NTA-2025-s149', 'NTA-2025-s150')",
-          "row_count": 8,
-          "not_found": [],
-          "by": "model"
-        }
-      },
-      "seq": 16
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:32.650Z",
-      "agent": "researcher",
-      "text": "Researcher turn 6: run_sql",
-      "data": {
-        "kind": "model_turn",
-        "ts": "2026-10-24T09:40:32.650Z",
-        "detail": {
-          "turn": 6,
-          "tool_calls": [
-            "run_sql"
-          ],
-          "content": ""
-        },
-        "receipt": {
-          "receipt_id": "rcpt_req_hdb2dchd",
-          "decision_id": "req_hdb2dchd",
-          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "provider": "nvidia",
-          "label": "Nemotron 3.5 Lightning 30B A3B",
-          "tier": "A",
-          "kind": "cloud",
-          "input_tokens": 7973,
-          "output_tokens": 367,
-          "latency_ms": 3458,
-          "signed": true
-        }
-      },
-      "seq": 17
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:32.650Z",
-      "agent": "researcher",
-      "text": "Researcher calls run_sql",
-      "data": {
-        "kind": "tool_call",
-        "ts": "2026-10-24T09:40:32.650Z",
-        "detail": {
-          "id": "call-e833e498-9896-4deb-8a45-64f44455f2a4",
-          "name": "run_sql",
-          "arguments": "{\"sql\":\"SELECT section_id, section_no, heading, snippet FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small business%' OR lower(text) LIKE '%small business%') LIMIT 20\"}",
-          "by": "model"
-        }
-      },
-      "seq": 18
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:32.651Z",
-      "agent": "researcher",
-      "text": "Researcher repeated an earlier run_sql call; the earlier result was reused",
-      "data": {
-        "kind": "tool_result",
-        "ts": "2026-10-24T09:40:32.651Z",
-        "detail": {
-          "tool": "run_sql",
-          "repeat": 1,
-          "row_count": 0,
-          "by": "model"
-        }
-      },
-      "seq": 19
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:33.779Z",
-      "agent": "researcher",
-      "text": "Researcher turn 7: get_sections",
-      "data": {
-        "kind": "model_turn",
-        "ts": "2026-10-24T09:40:33.779Z",
-        "detail": {
-          "turn": 7,
-          "tool_calls": [
-            "get_sections"
-          ],
-          "content": ""
-        },
-        "receipt": {
-          "receipt_id": "rcpt_req_8ayf9fi9",
-          "decision_id": "req_8ayf9fi9",
-          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "provider": "nvidia",
-          "label": "Nemotron 3.5 Lightning 30B A3B",
-          "tier": "A",
-          "kind": "cloud",
-          "input_tokens": 6078,
-          "output_tokens": 101,
-          "latency_ms": 1093,
-          "signed": true
-        }
-      },
-      "seq": 20
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:33.779Z",
-      "agent": "researcher",
-      "text": "Researcher calls get_sections",
-      "data": {
-        "kind": "tool_call",
-        "ts": "2026-10-24T09:40:33.779Z",
-        "detail": {
-          "id": "call-27990029-2ccb-44ee-8b71-9ebab502fedc",
-          "name": "get_sections",
-          "arguments": "{\"section_ids\":[\"NTA-2025-s201\"]}",
-          "by": "model"
-        }
-      },
-      "seq": 21
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:40:33.779Z",
-      "agent": "researcher",
-      "text": "Researcher repeated an earlier get_sections call; the earlier result was reused",
-      "data": {
-        "kind": "tool_result",
-        "ts": "2026-10-24T09:40:33.779Z",
-        "detail": {
-          "tool": "get_sections",
-          "repeat": 2,
-          "row_count": 1,
-          "by": "model"
-        }
-      },
       "seq": 22
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:56.640Z",
+      "ts": "2026-10-24T14:09:08.576Z",
       "agent": "researcher",
-      "text": "Researcher drafts the answer",
+      "text": "",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:40:56.640Z",
+        "ts": "2026-10-24T14:09:08.576Z",
         "detail": {
           "turn": 8,
-          "tool_calls": [],
-          "content": "{\"claims\": [{\"id\": \"c1\", \"type\": \"obligation\", \"text\": \"The business must charge Value Added Tax at 7.5% on the value of its taxable supplies.\", \"section_ids\": [\"NTA-2025-s147\"], \"tier\": \"federal\", \"agency\": null}, {\"id\": \"c2\", \"type\": \"obligation\", \"text\": \"VAT is payable on all taxable supplies in"
+          "tool_calls": [
+            "browse_part"
+          ],
+          "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_cax7d484",
-          "decision_id": "req_cax7d484",
+          "receipt_id": "rcpt_req_xuwpv0dh",
+          "decision_id": "req_xuwpv0dh",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 6151,
-          "output_tokens": 2671,
-          "latency_ms": 22754,
+          "input_tokens": 6511,
+          "output_tokens": 89,
+          "latency_ms": 1270,
           "signed": true
         }
       },
@@ -534,67 +535,66 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:56.651Z",
+      "ts": "2026-10-24T14:09:08.576Z",
       "agent": "researcher",
-      "text": "Agent calls browse_part",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:40:56.651Z",
+        "ts": "2026-10-24T14:09:08.576Z",
         "detail": {
-          "id": "agent_browse_a_1",
+          "id": "call-b10e6254-b826-4ab3-a748-cd8fc33c3bee",
           "name": "browse_part",
-          "arguments": "{\"act_id\":\"NTAA-2025\",\"chapter\":\"CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES\",\"part\":\"PART II – REGISTRATION\"}",
-          "by": "agent"
+          "arguments": "{\"part\":\"PART II – REMITTANCES AND RECOVERY OF VAT\",\"act_id\":\"NTA-2025\",\"chapter\":\"CHAPTER SIX VALUE ADDED TAX\"}",
+          "by": "model"
         }
       },
       "seq": 24
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:40:56.941Z",
+      "ts": "2026-10-24T14:09:08.772Z",
       "agent": "researcher",
-      "text": "Agent browsed NTAA-2025 CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES PART II – REGISTRATION: 6 sections",
+      "text": "Researcher: browse_part NTA-2025 CHAPTER SIX VALUE ADDED TAX PART II – REMITTANCES AND RECOVERY OF VAT, 7 sections",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:40:56.941Z",
+        "ts": "2026-10-24T14:09:08.772Z",
         "detail": {
           "tool": "browse_part",
-          "requested": "NTAA-2025 CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES PART II – REGISTRATION",
-          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTAA-2025' AND chapter = 'CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES' AND part = 'PART II – REGISTRATION' ORDER BY CAST(section_no AS INT)",
-          "row_count": 6,
-          "by": "agent"
+          "requested": "NTA-2025 CHAPTER SIX VALUE ADDED TAX PART II – REMITTANCES AND RECOVERY OF VAT",
+          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTA-2025' AND chapter = 'CHAPTER SIX VALUE ADDED TAX' AND part = 'PART II – REMITTANCES AND RECOVERY OF VAT' ORDER BY CAST(section_no AS INT)",
+          "row_count": 7,
+          "by": "model"
         }
       },
       "seq": 25
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:06.104Z",
+      "ts": "2026-10-24T14:09:10.217Z",
       "agent": "researcher",
-      "text": "Researcher targets checklist area (a)",
+      "text": "",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:41:06.104Z",
+        "ts": "2026-10-24T14:09:10.217Z",
         "detail": {
-          "phase": "coverage",
-          "area": "a",
+          "turn": 9,
           "tool_calls": [
             "get_sections"
           ],
           "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_fpfzt2cj",
-          "decision_id": "req_fpfzt2cj",
+          "receipt_id": "rcpt_req_1e75lq49",
+          "decision_id": "req_1e75lq49",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 5846,
-          "output_tokens": 284,
-          "latency_ms": 9117,
+          "input_tokens": 6611,
+          "output_tokens": 105,
+          "latency_ms": 1395,
           "signed": true
         }
       },
@@ -602,16 +602,16 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:06.104Z",
+      "ts": "2026-10-24T14:09:10.217Z",
       "agent": "researcher",
-      "text": "Researcher calls get_sections",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:41:06.104Z",
+        "ts": "2026-10-24T14:09:10.217Z",
         "detail": {
-          "id": "call-7a5dcd8f-9e62-478d-b44a-7dfca3b1cfce",
+          "id": "call-686d23e5-3cb9-4b49-9f41-487e48e0834a",
           "name": "get_sections",
-          "arguments": "{\"section_ids\":[\"NTAA-2025-s4\",\"NTAA-2025-s5\",\"NTAA-2025-s6\",\"NTAA-2025-s7\",\"NTAA-2025-s8\",\"NTAA-2025-s9\"]}",
+          "arguments": "{\"section_ids\":[\"NTAA-2025-s22\",\"NTAA-2025-s147\"]}",
           "by": "model"
         }
       },
@@ -619,24 +619,20 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:06.391Z",
+      "ts": "2026-10-24T14:09:10.385Z",
       "agent": "researcher",
-      "text": "Read NTAA-2025-s4, NTAA-2025-s5, NTAA-2025-s6, NTAA-2025-s7 and 2 more in full",
+      "text": "Researcher: get_sections NTAA-2025-s22 … and 1 more",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:41:06.391Z",
+        "ts": "2026-10-24T14:09:10.385Z",
         "detail": {
           "tool": "get_sections",
           "requested": [
-            "NTAA-2025-s4",
-            "NTAA-2025-s5",
-            "NTAA-2025-s6",
-            "NTAA-2025-s7",
-            "NTAA-2025-s8",
-            "NTAA-2025-s9"
+            "NTAA-2025-s22",
+            "NTAA-2025-s147"
           ],
-          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTAA-2025-s4', 'NTAA-2025-s5', 'NTAA-2025-s6', 'NTAA-2025-s7', 'NTAA-2025-s8', 'NTAA-2025-s9')",
-          "row_count": 6,
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTAA-2025-s22', 'NTAA-2025-s147')",
+          "row_count": 2,
           "not_found": [],
           "by": "model"
         }
@@ -645,110 +641,118 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:06.392Z",
+      "ts": "2026-10-24T14:09:42.071Z",
       "agent": "researcher",
-      "text": "Agent calls browse_part",
-      "data": {
-        "kind": "tool_call",
-        "ts": "2026-10-24T09:41:06.392Z",
-        "detail": {
-          "id": "agent_browse_c_1",
-          "name": "browse_part",
-          "arguments": "{\"act_id\":\"NTAA-2025\",\"chapter\":\"CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS\",\"part\":\"PART I – RETURNS\"}",
-          "by": "agent"
-        }
-      },
-      "seq": 29
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:41:06.677Z",
-      "agent": "researcher",
-      "text": "Agent browsed NTAA-2025 CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS PART I – RETURNS: 24 sections",
-      "data": {
-        "kind": "tool_result",
-        "ts": "2026-10-24T09:41:06.677Z",
-        "detail": {
-          "tool": "browse_part",
-          "requested": "NTAA-2025 CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS PART I – RETURNS",
-          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTAA-2025' AND chapter = 'CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS' AND part = 'PART I – RETURNS' ORDER BY CAST(section_no AS INT)",
-          "row_count": 24,
-          "by": "agent"
-        }
-      },
-      "seq": 30
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:41:16.258Z",
-      "agent": "researcher",
-      "text": "Researcher targets checklist area (c)",
+      "text": "",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:41:16.258Z",
+        "ts": "2026-10-24T14:09:42.071Z",
         "detail": {
-          "phase": "coverage",
-          "area": "c",
+          "turn": 10,
           "tool_calls": [
             "get_sections"
           ],
           "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_1elqr5et",
-          "decision_id": "req_1elqr5et",
+          "receipt_id": "rcpt_req_8zul0z3k",
+          "decision_id": "req_8zul0z3k",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 6309,
-          "output_tokens": 668,
-          "latency_ms": 9542,
+          "input_tokens": 9145,
+          "output_tokens": 1919,
+          "latency_ms": 31635,
           "signed": true
+        }
+      },
+      "seq": 29
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:42.071Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:09:42.071Z",
+        "detail": {
+          "id": "call-147c898a-ffa6-47ae-8fec-947cad580a13",
+          "name": "get_sections",
+          "arguments": "{\"section_ids\":[\"NTAA-2025-s14\"]}",
+          "by": "model"
+        }
+      },
+      "seq": 30
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:09:42.313Z",
+      "agent": "researcher",
+      "text": "Researcher: get_sections NTAA-2025-s14",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:09:42.313Z",
+        "detail": {
+          "tool": "get_sections",
+          "requested": [
+            "NTAA-2025-s14"
+          ],
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTAA-2025-s14')",
+          "row_count": 1,
+          "not_found": [],
+          "by": "model"
         }
       },
       "seq": 31
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:16.259Z",
+      "ts": "2026-10-24T14:09:47.703Z",
       "agent": "researcher",
-      "text": "Researcher calls get_sections",
+      "text": "",
       "data": {
-        "kind": "tool_call",
-        "ts": "2026-10-24T09:41:16.259Z",
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:09:47.703Z",
         "detail": {
-          "id": "call-10ef7e4f-f3de-4459-887e-0266c2f33240",
-          "name": "get_sections",
-          "arguments": "{\"section_ids\":[\"NTAA-2025-s14\",\"NTAA-2025-s4\",\"NTAA-2025-s5\",\"NTAA-2025-s7\",\"NTAA-2025-s8\",\"NTAA-2025-s9\"]}",
-          "by": "model"
+          "turn": 11,
+          "tool_calls": [
+            "get_sections"
+          ],
+          "content": ""
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_ejunu3c6",
+          "decision_id": "req_ejunu3c6",
+          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "provider": "nvidia",
+          "label": "Nemotron 3.5 Lightning 30B A3B",
+          "tier": "A",
+          "kind": "cloud",
+          "input_tokens": 6533,
+          "output_tokens": 615,
+          "latency_ms": 5333,
+          "signed": true
         }
       },
       "seq": 32
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:16.568Z",
+      "ts": "2026-10-24T14:09:47.703Z",
       "agent": "researcher",
-      "text": "Read NTAA-2025-s14, NTAA-2025-s4, NTAA-2025-s5, NTAA-2025-s7 and 2 more in full",
+      "text": "",
       "data": {
-        "kind": "tool_result",
-        "ts": "2026-10-24T09:41:16.568Z",
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:09:47.703Z",
         "detail": {
-          "tool": "get_sections",
-          "requested": [
-            "NTAA-2025-s14",
-            "NTAA-2025-s4",
-            "NTAA-2025-s5",
-            "NTAA-2025-s7",
-            "NTAA-2025-s8",
-            "NTAA-2025-s9"
-          ],
-          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTAA-2025-s14', 'NTAA-2025-s4', 'NTAA-2025-s5', 'NTAA-2025-s7', 'NTAA-2025-s8', 'NTAA-2025-s9')",
-          "row_count": 6,
-          "not_found": [],
+          "id": "call-ccfc136b-755a-46cb-970e-8a633b1164d3",
+          "name": "get_sections",
+          "arguments": "{\"section_ids\":[\"NTA-2025-s143\",\"NTA-2025-s144\",\"NTA-2025-s145\",\"NTA-2025-s146\",\"NTA-2025-s150\"]}",
           "by": "model"
         }
       },
@@ -756,12 +760,264 @@
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:16.568Z",
+      "ts": "2026-10-24T14:09:47.874Z",
       "agent": "researcher",
-      "text": "Agent calls browse_part",
+      "text": "Researcher: get_sections NTA-2025-s143 … and 4 more",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:09:47.874Z",
+        "detail": {
+          "tool": "get_sections",
+          "requested": [
+            "NTA-2025-s143",
+            "NTA-2025-s144",
+            "NTA-2025-s145",
+            "NTA-2025-s146",
+            "NTA-2025-s150"
+          ],
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTA-2025-s143', 'NTA-2025-s144', 'NTA-2025-s145', 'NTA-2025-s146', 'NTA-2025-s150')",
+          "row_count": 5,
+          "not_found": [],
+          "by": "model"
+        }
+      },
+      "seq": 34
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:11:10.728Z",
+      "agent": "researcher",
+      "text": "Drafting call failed; retrying with a larger output budget",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:11:10.728Z",
+        "detail": {
+          "phase": "draft_retry",
+          "error": "Meterless server error: HTTP 502 {\"error\":{\"message\":\"/nemotron-3.5-lightning-30b-a3b_empty_response\",\"type\":\"api_error\",\"code\":\"provider_error\",\"param\":null,\"meterless_detail\":\"nvidia/nemotron-3.5-li",
+          "next_max_tokens": 8000
+        }
+      },
+      "seq": 35
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:13:58.072Z",
+      "agent": "researcher",
+      "text": "Researcher drafts the answer",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:13:58.072Z",
+        "detail": {
+          "turn": 12,
+          "tool_calls": [],
+          "content": "{\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"type\": \"obligation\",\n      \"text\": \"The business must register with the relevant tax authority and obtain a Taxpayer Identification Number (Tax ID) for compliance with tax obligations.\",\n      \"section_ids\": [\"NTAA-2025-s4\"],\n      \"tier\": \"federal\",\n  "
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_m7m9ebqa",
+          "decision_id": "req_m7m9ebqa",
+          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "provider": "nvidia",
+          "label": "Nemotron 3.5 Lightning 30B A3B",
+          "tier": "A",
+          "kind": "cloud",
+          "input_tokens": 7264,
+          "output_tokens": 7049,
+          "latency_ms": 84590,
+          "signed": true
+        }
+      },
+      "seq": 36
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:13:58.076Z",
+      "agent": "researcher",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:41:16.568Z",
+        "ts": "2026-10-24T14:13:58.076Z",
+        "detail": {
+          "id": "agent_browse_b_1",
+          "name": "browse_part",
+          "arguments": "{\"act_id\":\"NTA-2025\",\"chapter\":\"CHAPTER TWO – TAXATION OF INCOME OF PERSONS\",\"part\":\"PART 1 – IMPOSITION OF TAX ON INCOME, PROFITS OR GAINS\"}",
+          "by": "agent"
+        }
+      },
+      "seq": 37
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:13:58.252Z",
+      "agent": "researcher",
+      "text": "Agent: browse_part NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART 1 – IMPOSITION OF TAX ON INCOME, PROFITS OR GAINS, 3 sections",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:13:58.252Z",
+        "detail": {
+          "tool": "browse_part",
+          "requested": "NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART 1 – IMPOSITION OF TAX ON INCOME, PROFITS OR GAINS",
+          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTA-2025' AND chapter = 'CHAPTER TWO – TAXATION OF INCOME OF PERSONS' AND part = 'PART 1 – IMPOSITION OF TAX ON INCOME, PROFITS OR GAINS' ORDER BY CAST(section_no AS INT)",
+          "row_count": 3,
+          "by": "agent"
+        }
+      },
+      "seq": 38
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:13:58.256Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:13:58.256Z",
+        "detail": {
+          "id": "agent_browse_b_2",
+          "name": "browse_part",
+          "arguments": "{\"act_id\":\"NTA-2025\",\"chapter\":\"CHAPTER TWO – TAXATION OF INCOME OF PERSONS\",\"part\":\"PART VII – ASCERTAINMENT OF TOTAL INCOME OF AN INDIVIDUAL\"}",
+          "by": "agent"
+        }
+      },
+      "seq": 39
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:13:58.408Z",
+      "agent": "researcher",
+      "text": "Agent: browse_part NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART VII – ASCERTAINMENT OF TOTAL INCOME OF AN INDIVIDUAL, 5 sections",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:13:58.408Z",
+        "detail": {
+          "tool": "browse_part",
+          "requested": "NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART VII – ASCERTAINMENT OF TOTAL INCOME OF AN INDIVIDUAL",
+          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTA-2025' AND chapter = 'CHAPTER TWO – TAXATION OF INCOME OF PERSONS' AND part = 'PART VII – ASCERTAINMENT OF TOTAL INCOME OF AN INDIVIDUAL' ORDER BY CAST(section_no AS INT)",
+          "row_count": 5,
+          "by": "agent"
+        }
+      },
+      "seq": 40
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:13:58.411Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:13:58.411Z",
+        "detail": {
+          "id": "agent_browse_b_3",
+          "name": "browse_part",
+          "arguments": "{\"act_id\":\"NTA-2025\",\"chapter\":\"CHAPTER TWO – TAXATION OF INCOME OF PERSONS\",\"part\":\"PART IX – RATES OF TAX\"}",
+          "by": "agent"
+        }
+      },
+      "seq": 41
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:13:58.567Z",
+      "agent": "researcher",
+      "text": "Agent: browse_part NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART IX – RATES OF TAX, 3 sections",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:13:58.567Z",
+        "detail": {
+          "tool": "browse_part",
+          "requested": "NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART IX – RATES OF TAX",
+          "sql_run": "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTA-2025' AND chapter = 'CHAPTER TWO – TAXATION OF INCOME OF PERSONS' AND part = 'PART IX – RATES OF TAX' ORDER BY CAST(section_no AS INT)",
+          "row_count": 3,
+          "by": "agent"
+        }
+      },
+      "seq": 42
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:14:35.870Z",
+      "agent": "researcher",
+      "text": "Researcher targets checklist area (b)",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:14:35.870Z",
+        "detail": {
+          "phase": "coverage",
+          "area": "b",
+          "tool_calls": [
+            "get_sections"
+          ],
+          "content": ""
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_17xu3njk",
+          "decision_id": "req_17xu3njk",
+          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+          "provider": "nvidia",
+          "label": "Nemotron 3.5 Lightning 30B A3B",
+          "tier": "A",
+          "kind": "cloud",
+          "input_tokens": 6432,
+          "output_tokens": 3338,
+          "latency_ms": 37258,
+          "signed": true
+        }
+      },
+      "seq": 43
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:14:35.873Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:14:35.873Z",
+        "detail": {
+          "id": "call-b85ba1c7-5252-462b-81f5-1248a239ae60",
+          "name": "get_sections",
+          "arguments": "{\"section_ids\":[\"NTA-2025-s3\",\"NTA-2025-s4\",\"NTA-2025-s5\",\"NTA-2025-s28\",\"NTA-2025-s30\",\"NTA-2025-s201\"]}",
+          "by": "model"
+        }
+      },
+      "seq": 44
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:14:36.045Z",
+      "agent": "researcher",
+      "text": "Researcher: get_sections NTA-2025-s3 … and 5 more",
+      "data": {
+        "kind": "tool_result",
+        "ts": "2026-10-24T14:14:36.045Z",
+        "detail": {
+          "tool": "get_sections",
+          "requested": [
+            "NTA-2025-s3",
+            "NTA-2025-s4",
+            "NTA-2025-s5",
+            "NTA-2025-s28",
+            "NTA-2025-s30",
+            "NTA-2025-s201"
+          ],
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTA-2025-s3', 'NTA-2025-s4', 'NTA-2025-s5', 'NTA-2025-s28', 'NTA-2025-s30', 'NTA-2025-s201')",
+          "row_count": 6,
+          "not_found": [],
+          "by": "model"
+        }
+      },
+      "seq": 45
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:14:36.047Z",
+      "agent": "researcher",
+      "text": "",
+      "data": {
+        "kind": "tool_call",
+        "ts": "2026-10-24T14:14:36.047Z",
         "detail": {
           "id": "agent_browse_e_1",
           "name": "browse_part",
@@ -769,16 +1025,16 @@
           "by": "agent"
         }
       },
-      "seq": 34
+      "seq": 46
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:16.814Z",
+      "ts": "2026-10-24T14:14:36.223Z",
       "agent": "researcher",
-      "text": "Agent browsed NTAA-2025 CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS PART I – RETURNS: 24 sections",
+      "text": "Agent: browse_part NTAA-2025 CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS PART I – RETURNS, 24 sections",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:41:16.814Z",
+        "ts": "2026-10-24T14:14:36.223Z",
         "detail": {
           "tool": "browse_part",
           "requested": "NTAA-2025 CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS PART I – RETURNS",
@@ -787,16 +1043,16 @@
           "by": "agent"
         }
       },
-      "seq": 35
+      "seq": 47
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:20.173Z",
+      "ts": "2026-10-24T14:14:51.739Z",
       "agent": "researcher",
       "text": "Researcher targets checklist area (e)",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:41:20.173Z",
+        "ts": "2026-10-24T14:14:51.739Z",
         "detail": {
           "phase": "coverage",
           "area": "e",
@@ -806,73 +1062,73 @@
           "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_xv4i5f67",
-          "decision_id": "req_xv4i5f67",
+          "receipt_id": "rcpt_req_lzkfeatc",
+          "decision_id": "req_lzkfeatc",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 6318,
-          "output_tokens": 363,
-          "latency_ms": 3319,
+          "input_tokens": 6592,
+          "output_tokens": 1682,
+          "latency_ms": 15409,
           "signed": true
         }
       },
-      "seq": 36
+      "seq": 48
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:20.173Z",
+      "ts": "2026-10-24T14:14:51.743Z",
       "agent": "researcher",
-      "text": "Researcher calls get_sections",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:41:20.173Z",
+        "ts": "2026-10-24T14:14:51.743Z",
         "detail": {
-          "id": "call-1412250e-140b-4d77-85f5-7ace6ba65f3f",
+          "id": "call-63a7664b-c11e-455f-998b-0507fb49d7ce",
           "name": "get_sections",
-          "arguments": "{\"section_ids\":[\"NTAA-2025-s10\",\"NTAA-2025-s11\",\"NTAA-2025-s13\",\"NTAA-2025-s31\",\"NTAA-2025-s32\",\"NTAA-2025-s33\"]}",
+          "arguments": "{\"section_ids\":[\"NTAA-2025-s13\",\"NTAA-2025-s31\",\"NTAA-2025-s22\",\"NTAA-2025-s23\",\"NTAA-2025-s147\",\"NTAA-2025-s32\"]}",
           "by": "model"
         }
       },
-      "seq": 37
+      "seq": 49
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:20.357Z",
+      "ts": "2026-10-24T14:14:51.924Z",
       "agent": "researcher",
-      "text": "Read NTAA-2025-s10, NTAA-2025-s11, NTAA-2025-s13, NTAA-2025-s31 and 2 more in full",
+      "text": "Researcher: get_sections NTAA-2025-s13 … and 5 more",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:41:20.357Z",
+        "ts": "2026-10-24T14:14:51.924Z",
         "detail": {
           "tool": "get_sections",
           "requested": [
-            "NTAA-2025-s10",
-            "NTAA-2025-s11",
             "NTAA-2025-s13",
             "NTAA-2025-s31",
-            "NTAA-2025-s32",
-            "NTAA-2025-s33"
+            "NTAA-2025-s22",
+            "NTAA-2025-s23",
+            "NTAA-2025-s147",
+            "NTAA-2025-s32"
           ],
-          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTAA-2025-s10', 'NTAA-2025-s11', 'NTAA-2025-s13', 'NTAA-2025-s31', 'NTAA-2025-s32', 'NTAA-2025-s33')",
+          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTAA-2025-s13', 'NTAA-2025-s31', 'NTAA-2025-s22', 'NTAA-2025-s23', 'NTAA-2025-s147', 'NTAA-2025-s32')",
           "row_count": 6,
           "not_found": [],
           "by": "model"
         }
       },
-      "seq": 38
+      "seq": 50
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:20.357Z",
+      "ts": "2026-10-24T14:14:51.927Z",
       "agent": "researcher",
-      "text": "Agent calls browse_part",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:41:20.357Z",
+        "ts": "2026-10-24T14:14:51.927Z",
         "detail": {
           "id": "agent_browse_f_1",
           "name": "browse_part",
@@ -880,16 +1136,16 @@
           "by": "agent"
         }
       },
-      "seq": 39
+      "seq": 51
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:20.551Z",
+      "ts": "2026-10-24T14:14:52.101Z",
       "agent": "researcher",
-      "text": "Agent browsed NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART X – DEVELOPMENT LEVY: 1 sections",
+      "text": "Agent: browse_part NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART X – DEVELOPMENT LEVY, 1 sections",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:41:20.551Z",
+        "ts": "2026-10-24T14:14:52.101Z",
         "detail": {
           "tool": "browse_part",
           "requested": "NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS PART X – DEVELOPMENT LEVY",
@@ -898,16 +1154,16 @@
           "by": "agent"
         }
       },
-      "seq": 40
+      "seq": 52
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:20.552Z",
+      "ts": "2026-10-24T14:14:52.104Z",
       "agent": "researcher",
-      "text": "Agent calls browse_part",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:41:20.552Z",
+        "ts": "2026-10-24T14:14:52.104Z",
         "detail": {
           "id": "agent_browse_f_2",
           "name": "browse_part",
@@ -915,16 +1171,16 @@
           "by": "agent"
         }
       },
-      "seq": 41
+      "seq": 53
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:20.753Z",
+      "ts": "2026-10-24T14:14:52.270Z",
       "agent": "researcher",
-      "text": "Agent browsed NTA-2025 CHAPTER SEVEN SURCHARGE (none): 4 sections",
+      "text": "Agent: browse_part NTA-2025 CHAPTER SEVEN SURCHARGE (none), 4 sections",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:41:20.753Z",
+        "ts": "2026-10-24T14:14:52.270Z",
         "detail": {
           "tool": "browse_part",
           "requested": "NTA-2025 CHAPTER SEVEN SURCHARGE (none)",
@@ -933,16 +1189,16 @@
           "by": "agent"
         }
       },
-      "seq": 42
+      "seq": 54
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:22.851Z",
+      "ts": "2026-10-24T14:14:54.505Z",
       "agent": "researcher",
       "text": "Researcher targets checklist area (f)",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:41:22.851Z",
+        "ts": "2026-10-24T14:14:54.505Z",
         "detail": {
           "phase": "coverage",
           "area": "f",
@@ -952,47 +1208,47 @@
           "content": ""
         },
         "receipt": {
-          "receipt_id": "rcpt_req_bzg6rs7l",
-          "decision_id": "req_bzg6rs7l",
+          "receipt_id": "rcpt_req_969zfq6k",
+          "decision_id": "req_969zfq6k",
           "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
           "provider": "nvidia",
           "label": "Nemotron 3.5 Lightning 30B A3B",
           "tier": "A",
           "kind": "cloud",
-          "input_tokens": 6117,
-          "output_tokens": 176,
-          "latency_ms": 2061,
+          "input_tokens": 6347,
+          "output_tokens": 207,
+          "latency_ms": 2196,
           "signed": true
         }
       },
-      "seq": 43
+      "seq": 55
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:22.852Z",
+      "ts": "2026-10-24T14:14:54.507Z",
       "agent": "researcher",
-      "text": "Researcher calls get_sections",
+      "text": "",
       "data": {
         "kind": "tool_call",
-        "ts": "2026-10-24T09:41:22.852Z",
+        "ts": "2026-10-24T14:14:54.507Z",
         "detail": {
-          "id": "call-a23f00f5-0506-450e-bc78-ac77a4c13841",
+          "id": "call-058af89d-b159-4a58-bbbf-8882ee7577d0",
           "name": "get_sections",
           "arguments": "{\"section_ids\":[\"NTA-2025-s59\",\"NTA-2025-s158\",\"NTA-2025-s159\",\"NTA-2025-s160\",\"NTA-2025-s161\"]}",
           "by": "model"
         }
       },
-      "seq": 44
+      "seq": 56
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:41:23.033Z",
+      "ts": "2026-10-24T14:14:54.676Z",
       "agent": "researcher",
-      "text": "Read NTA-2025-s59, NTA-2025-s158, NTA-2025-s159, NTA-2025-s160 and 1 more in full",
+      "text": "Researcher: get_sections NTA-2025-s59 … and 4 more",
       "data": {
         "kind": "tool_result",
-        "ts": "2026-10-24T09:41:23.033Z",
+        "ts": "2026-10-24T14:14:54.676Z",
         "detail": {
           "tool": "get_sections",
           "requested": [
@@ -1008,217 +1264,104 @@
           "by": "model"
         }
       },
-      "seq": 45
+      "seq": 57
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:42:00.519Z",
+      "ts": "2026-10-24T14:16:13.208Z",
       "agent": "researcher",
       "text": "Drafting call failed; retrying with a larger output budget",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:42:00.519Z",
+        "ts": "2026-10-24T14:16:13.208Z",
         "detail": {
           "phase": "draft_retry",
           "error": "Meterless server error: HTTP 502 {\"error\":{\"message\":\"/nemotron-3.5-lightning-30b-a3b_empty_response\",\"type\":\"api_error\",\"code\":\"provider_error\",\"param\":null,\"meterless_detail\":\"nvidia/nemotron-3.5-li",
           "next_max_tokens": 8000
         }
       },
-      "seq": 46
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:44:59.941Z",
-      "agent": "researcher",
-      "text": "Agent calls get_sections",
-      "data": {
-        "kind": "tool_call",
-        "ts": "2026-10-24T09:44:59.941Z",
-        "detail": {
-          "id": "agent_fetch_1",
-          "name": "get_sections",
-          "arguments": "{\"section_ids\":[\"NTA-2025-s56\"]}",
-          "by": "agent"
-        }
-      },
-      "seq": 47
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:45:00.151Z",
-      "agent": "researcher",
-      "text": "Agent read NTA-2025-s56 in full",
-      "data": {
-        "kind": "tool_result",
-        "ts": "2026-10-24T09:45:00.151Z",
-        "detail": {
-          "tool": "get_sections",
-          "requested": [
-            "NTA-2025-s56"
-          ],
-          "sql_run": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN ('NTA-2025-s56')",
-          "row_count": 1,
-          "not_found": [],
-          "by": "agent"
-        }
-      },
-      "seq": 48
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:45:49.918Z",
-      "agent": "researcher",
-      "text": "Drafting call failed; retrying with a larger output budget",
-      "data": {
-        "kind": "model_turn",
-        "ts": "2026-10-24T09:45:49.918Z",
-        "detail": {
-          "phase": "draft_retry",
-          "error": "Meterless server error: HTTP 502 {\"error\":{\"message\":\"/nemotron-3.5-lightning-30b-a3b_empty_response\",\"type\":\"api_error\",\"code\":\"provider_error\",\"param\":null,\"meterless_detail\":\"nvidia/nemotron-3.5-li",
-          "next_max_tokens": 8000
-        }
-      },
-      "seq": 49
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:49:17.175Z",
-      "agent": "researcher",
-      "text": "Researcher drafts the answer",
-      "data": {
-        "kind": "model_turn",
-        "ts": "2026-10-24T09:49:17.175Z",
-        "detail": {
-          "turn": 9,
-          "tool_calls": [],
-          "content": "{\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"type\": \"obligation\",\n      \"text\": \"The business must charge Value Added Tax at 7.5% on the value of its taxable supplies.\",\n      \"section_ids\": [\"NTA-2025-s147\"],\n      \"tier\": \"federal\",\n      \"agency\": null\n    },\n    {\n      \"id\": \"c2\",\n      \"type"
-        },
-        "receipt": {
-          "receipt_id": "rcpt_req_uh5te0g4",
-          "decision_id": "req_uh5te0g4",
-          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "provider": "nvidia",
-          "label": "Nemotron 3.5 Lightning 30B A3B",
-          "tier": "A",
-          "kind": "cloud",
-          "input_tokens": 8802,
-          "output_tokens": 8000,
-          "latency_ms": 117368,
-          "signed": true
-        }
-      },
-      "seq": 50
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:49:54.523Z",
-      "agent": "researcher",
-      "text": "Researcher drafts the answer",
-      "data": {
-        "kind": "model_turn",
-        "ts": "2026-10-24T09:49:54.523Z",
-        "detail": {
-          "turn": 10,
-          "tool_calls": [],
-          "content": "{\n  \"claims\": [\n    {\n      \"id\": \"c1\",\n      \"type\": \"obligation\",\n      \"text\": \"The business must charge Value Added Tax at 7.5% on the value of its taxable supplies.\",\n      \"section_ids\": [\"NTA-2025-s147\"],\n      \"tier\": \"federal\",\n      \"agency\": null\n    },\n    {\n      \"id\": \"c2\",\n      \"type"
-        },
-        "receipt": {
-          "receipt_id": "rcpt_req_h352jvn2",
-          "decision_id": "req_h352jvn2",
-          "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
-          "provider": "nvidia",
-          "label": "Nemotron 3.5 Lightning 30B A3B",
-          "tier": "A",
-          "kind": "cloud",
-          "input_tokens": 9133,
-          "output_tokens": 3960,
-          "latency_ms": 37299,
-          "signed": true
-        }
-      },
-      "seq": 51
+      "seq": 58
     },
     {
       "type": "status",
-      "ts": "2026-10-24T09:49:54.524Z",
+      "ts": "2026-10-24T14:20:12.573Z",
       "agent": "system",
-      "text": "Researcher finished: 3 claims from 28 sections read. Critic started",
+      "text": "Researcher finished: 6 claims from 28 sections read, using 5 memories from earlier runs. Critic started",
       "data": null,
-      "seq": 52
+      "seq": 59
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:50:42.073Z",
+      "ts": "2026-10-24T14:20:29.360Z",
       "agent": "critic",
-      "text": "Critic read claim c1 (NTA-2025-s147): struck",
+      "text": "Critic read claim c1 (NTAA-2025-s4): supported",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:50:42.073Z",
+        "ts": "2026-10-24T14:20:29.360Z",
         "detail": {
           "claim_id": "c1",
-          "piece": "NTA-2025-s147",
+          "piece": "NTAA-2025-s4",
           "attempt": 1,
-          "verdict": "struck",
-          "struck_because": "not_established",
+          "verdict": "supported",
+          "struck_because": null,
           "quote_verified": true,
           "definitions": [
-            "NTAA-2025-s147:business",
-            "NTA-2025-s201:tax"
+            "NTAA-2025-s147:relevant tax authority",
+            "NTA-2025-s201:tax id",
+            "NTAA-2025-s147:taxable person"
           ],
-          "content": "truction does not assign the duty to the business, and the text includes a qualification ('Subject to the provisions of Part IX') that the claim omits.\", \"quote\": \"VAT shall be charged on the value of all taxable supplies at the rate of 7.5%.\", \"qualifier\": null, \"struck_because\": \"not_established\"}"
+          "content": "4 imposes the registration and Tax ID obligation on every taxable person.\", \"quote\": \"Every taxable person shall register with the relevant tax authority and obtain a Taxpayer Identification (\\\"Tax ID\\\") for the purpose of compliance with tax obligations.\", \"qualifier\": null, \"struck_because\": null}"
         },
         "receipt": {
-          "receipt_id": "rcpt_req_atjzbvuv",
-          "decision_id": "req_atjzbvuv",
+          "receipt_id": "rcpt_req_7y88ll9p",
+          "decision_id": "req_7y88ll9p",
           "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "provider": "nvidia",
           "label": "Nemotron 3 Ultra 550B A55B",
           "tier": "C",
           "kind": "cloud",
-          "input_tokens": 4396,
-          "output_tokens": 3197,
-          "latency_ms": 47504,
+          "input_tokens": 4566,
+          "output_tokens": 712,
+          "latency_ms": 16738,
           "signed": true
         }
       },
-      "seq": 53
+      "seq": 60
     },
     {
       "type": "verdict",
-      "ts": "2026-10-24T09:50:42.073Z",
+      "ts": "2026-10-24T14:20:29.363Z",
       "agent": "critic",
-      "text": "Critic: claim c1 struck",
+      "text": "Critic: claim c1 supported",
       "data": {
         "claim": {
           "id": "c1",
           "type": "obligation",
-          "text": "The business must charge Value Added Tax at 7.5% on the value of its taxable supplies.",
+          "text": "The business must register with the relevant tax authority and obtain a Taxpayer Identification Number (Tax ID) for compliance with tax obligations.",
           "section_ids": [
-            "NTA-2025-s147"
+            "NTAA-2025-s4"
           ],
           "tier": "federal",
           "agency": null
         },
-        "verdict": "struck",
-        "reason": "text does not establish the claim: The quoted text states that VAT shall be charged at 7.5% on all taxable supplies, but it does not specify that the business must charge it; the passive construction does not assign the duty to the business, and the text includes a qualification ('Subject to the provisions of Part IX') that the claim omits.",
-        "quote": "VAT shall be charged on the value of all taxable supplies at the rate of 7.5%.",
+        "verdict": "supported",
+        "reason": "The business is a sole proprietor carrying on retail trade with premises, which constitutes a \"taxable person\" under the definition (carries out economic activity in a place for the purpose of obtaining income by way of trade or business), and section 4 imposes the registration and Tax ID obligation on every taxable person.",
+        "quote": "Every taxable person shall register with the relevant tax authority and obtain a Taxpayer Identification (\"Tax ID\") for the purpose of compliance with tax obligations.",
         "quote_verified": true,
         "qualifier": null,
         "receipt": {
-          "receipt_id": "rcpt_req_atjzbvuv",
-          "decision_id": "req_atjzbvuv",
+          "receipt_id": "rcpt_req_7y88ll9p",
+          "decision_id": "req_7y88ll9p",
           "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "provider": "nvidia",
           "label": "Nemotron 3 Ultra 550B A55B",
           "tier": "C",
           "kind": "cloud",
-          "input_tokens": 4396,
-          "output_tokens": 3197,
-          "latency_ms": 47504,
+          "input_tokens": 4566,
+          "output_tokens": 712,
+          "latency_ms": 16738,
           "signed": true
         },
         "definitions_used": [
@@ -1228,184 +1371,98 @@
         "definitions": [
           {
             "section_id": "NTAA-2025-s147",
-            "term": "business",
-            "definition": "\"business\" includes any economic activity such as trade, commerce, manufacturing, service or any activity carried out for the purpose of earning income"
+            "term": "relevant tax authority",
+            "definition": "\"relevant tax authority\" means Nigeria Revenue Service, the Internal Revenue Service of a State or the Federal Capital Territory in Nigeria"
           },
           {
             "section_id": "NTA-2025-s201",
-            "term": "tax",
-            "definition": "\"tax\" any imposition, duty, levy, royalty or revenue accruing to government in full or in part under this Act or any other law"
+            "term": "tax id",
+            "definition": "\"tax ID\" is as provided for under Nigeria Tax Administration Act"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
           }
         ]
       },
-      "seq": 54
+      "seq": 61
     },
     {
       "type": "trace",
-      "ts": "2026-10-24T09:50:47.554Z",
+      "ts": "2026-10-24T14:21:03.758Z",
       "agent": "critic",
-      "text": "Critic read claim c2 (NTA-2025-s144): supported",
+      "text": "Critic read claim c2 (NTAA-2025-s8): supported",
       "data": {
         "kind": "model_turn",
-        "ts": "2026-10-24T09:50:47.554Z",
+        "ts": "2026-10-24T14:21:03.758Z",
         "detail": {
           "claim_id": "c2",
-          "piece": "NTA-2025-s144",
+          "piece": "NTAA-2025-s8",
           "attempt": 1,
           "verdict": "supported",
           "struck_because": null,
           "quote_verified": true,
           "definitions": [
-            "NTA-2025-s201:nigeria",
-            "NTA-2025-s201:tax"
+            "NTA-2025-s201:tax id",
+            "NTAA-2025-s147:taxable person",
+            "NTAA-2025-s147:document",
+            "NTAA-2025-s147:government",
+            "NTA-2025-s201:banking",
+            "NTA-2025-s201:insurance"
           ],
-          "content": "ubject to exemptions in Part IV of Chapter Eight, and the shop operates in Lagos (within Nigeria) making taxable supplies.\", \"quote\": \"Subject to the exemptions in Part IV of Chapter Eight of this Act, VAT shall be paid on all taxable supplies in Nigeria.\", \"qualifier\": null, \"struck_because\": null}"
+          "content": "ctions.\", \"quote\": \"A Tax ID shall be – (a) stated on a return, notice, correspondence or documents submitted, lodged or used for the purposes of tax compliance ; (b) stated on a document prepared, produced, issued or submitted in respect of a transaction\", \"qualifier\": null, \"struck_because\": null}"
         },
         "receipt": {
-          "receipt_id": "rcpt_req_rx0bfdtz",
-          "decision_id": "req_rx0bfdtz",
+          "receipt_id": "rcpt_req_cs4t9xlq",
+          "decision_id": "req_cs4t9xlq",
           "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "provider": "nvidia",
           "label": "Nemotron 3 Ultra 550B A55B",
           "tier": "C",
           "kind": "cloud",
-          "input_tokens": 3811,
-          "output_tokens": 642,
-          "latency_ms": 5446,
+          "input_tokens": 4812,
+          "output_tokens": 1281,
+          "latency_ms": 34332,
           "signed": true
         }
       },
-      "seq": 55
+      "seq": 62
     },
     {
       "type": "verdict",
-      "ts": "2026-10-24T09:50:47.554Z",
+      "ts": "2026-10-24T14:21:03.758Z",
       "agent": "critic",
       "text": "Critic: claim c2 supported",
       "data": {
         "claim": {
           "id": "c2",
           "type": "obligation",
-          "text": "VAT is payable on all taxable supplies in Nigeria, subject to the exemptions in Part IV of Chapter Eight of the Nigeria Tax Act.",
+          "text": "The Tax ID obtained must be stated on all returns, notices, correspondence and documents submitted for tax compliance, and on documents prepared in respect of transactions.",
           "section_ids": [
-            "NTA-2025-s144"
+            "NTAA-2025-s8"
           ],
           "tier": "federal",
           "agency": null
         },
         "verdict": "supported",
-        "reason": "The quoted text states VAT shall be paid on all taxable supplies in Nigeria subject to exemptions in Part IV of Chapter Eight, and the shop operates in Lagos (within Nigeria) making taxable supplies.",
-        "quote": "Subject to the exemptions in Part IV of Chapter Eight of this Act, VAT shall be paid on all taxable supplies in Nigeria.",
+        "reason": "The business is a sole proprietor carrying on retail trade with premises, which constitutes a \"taxable person\" under the definition (carries out economic activity in a place for the purpose of obtaining income by way of trade or business), and section 8(1)(a) and (b) requires the Tax ID to be stated on returns, notices, correspondence, documents for tax compliance, and on documents prepared in respect of transactions.",
+        "quote": "A Tax ID shall be – (a) stated on a return, notice, correspondence or documents submitted, lodged or used for the purposes of tax compliance ; (b) stated on a document prepared, produced, issued or submitted in respect of a transaction",
         "quote_verified": true,
         "qualifier": null,
         "receipt": {
-          "receipt_id": "rcpt_req_rx0bfdtz",
-          "decision_id": "req_rx0bfdtz",
+          "receipt_id": "rcpt_req_cs4t9xlq",
+          "decision_id": "req_cs4t9xlq",
           "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "provider": "nvidia",
           "label": "Nemotron 3 Ultra 550B A55B",
           "tier": "C",
           "kind": "cloud",
-          "input_tokens": 3811,
-          "output_tokens": 642,
-          "latency_ms": 5446,
-          "signed": true
-        },
-        "definitions_used": [
-          "NTA-2025-s201"
-        ],
-        "definitions": [
-          {
-            "section_id": "NTA-2025-s201",
-            "term": "nigeria",
-            "definition": "\"Nigeria\" means the Federal Republic of Nigeria, and when used in a geographical sense, includes the territorial waters of the Federal Republic of Nigeria, and any area outside the territorial waters, including the continental shelf, which in accordance with international law has been or may hereafter be designated, under the law of the Federal Republic of Nigeria, as an area within which the right of the Federal Republic of Nigeria with respect to the seabed, its subsoil, its superjacent waters and their natural resources may be exercised now and in the future"
-          },
-          {
-            "section_id": "NTA-2025-s201",
-            "term": "tax",
-            "definition": "\"tax\" any imposition, duty, levy, royalty or revenue accruing to government in full or in part under this Act or any other law"
-          }
-        ]
-      },
-      "seq": 56
-    },
-    {
-      "type": "trace",
-      "ts": "2026-10-24T09:50:59.719Z",
-      "agent": "critic",
-      "text": "Critic read claim c3 (NTA-2025-s56): supported",
-      "data": {
-        "kind": "model_turn",
-        "ts": "2026-10-24T09:50:59.719Z",
-        "detail": {
-          "claim_id": "c3",
-          "piece": "NTA-2025-s56",
-          "attempt": 1,
-          "verdict": "supported",
-          "struck_because": null,
-          "quote_verified": true,
-          "definitions": [
-            "NTA-2025-s201:income tax",
-            "NTA-2025-s201:tax",
-            "NTA-2025-s201:year of assessment",
-            "NTA-2025-s201:small company",
-            "NTA-2025-s201:company",
-            "NTAA-2025-s147:president"
-          ],
-          "content": "s a company or corporation, and the profile shows a sole proprietor, which is not a company, so Companies Income Tax does not apply to this business.\", \"quote\": \"Tax shall be levied, for each year of assessment in respect of total profits of every company\", \"qualifier\": null, \"struck_because\": null}"
-        },
-        "receipt": {
-          "receipt_id": "rcpt_req_2towgee7",
-          "decision_id": "req_2towgee7",
-          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
-          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
-          "provider": "nvidia",
-          "label": "Nemotron 3 Ultra 550B A55B",
-          "tier": "C",
-          "kind": "cloud",
-          "input_tokens": 5013,
-          "output_tokens": 1016,
-          "latency_ms": 12115,
-          "signed": true
-        }
-      },
-      "seq": 57
-    },
-    {
-      "type": "verdict",
-      "ts": "2026-10-24T09:50:59.719Z",
-      "agent": "critic",
-      "text": "Critic: claim c3 supported",
-      "data": {
-        "claim": {
-          "id": "c3",
-          "type": "exemption",
-          "text": "The sole proprietor is not liable for Companies Income Tax under NTA-2025-s56, which imposes tax only on companies.",
-          "section_ids": [
-            "NTA-2025-s56"
-          ],
-          "tier": "federal",
-          "agency": null
-        },
-        "verdict": "supported",
-        "reason": "The quoted text levies tax on the total profits of every company; the definition of 'company' is a company or corporation, and the profile shows a sole proprietor, which is not a company, so Companies Income Tax does not apply to this business.",
-        "quote": "Tax shall be levied, for each year of assessment in respect of total profits of every company",
-        "quote_verified": true,
-        "qualifier": null,
-        "receipt": {
-          "receipt_id": "rcpt_req_2towgee7",
-          "decision_id": "req_2towgee7",
-          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
-          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
-          "provider": "nvidia",
-          "label": "Nemotron 3 Ultra 550B A55B",
-          "tier": "C",
-          "kind": "cloud",
-          "input_tokens": 5013,
-          "output_tokens": 1016,
-          "latency_ms": 12115,
+          "input_tokens": 4812,
+          "output_tokens": 1281,
+          "latency_ms": 34332,
           "signed": true
         },
         "definitions_used": [
@@ -1415,18 +1472,440 @@
         "definitions": [
           {
             "section_id": "NTA-2025-s201",
-            "term": "income tax",
-            "definition": "\"income tax\" means any tax chargeable under Chapters Two and Three of this Act"
+            "term": "tax id",
+            "definition": "\"tax ID\" is as provided for under Nigeria Tax Administration Act"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "document",
+            "definition": "\"document\" includes any record of information evidencing a transaction, supporting accounts or schedules, accounting or inventory ledger, including reports, agreements, correspondences, memoranda, minutes of meeting or any such record however compiled, recorded or stored, whether written or printed or micro-film, digital, magnetic, electronic or optical form or otherwise, and all types of information stored in digital devices, computer or any other similar equipment"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "government",
+            "definition": "\"Government\" means the Federal, State, the Federal Capital Territory or Local Government Council and shall include, as the case may be, any agency of Government"
           },
           {
             "section_id": "NTA-2025-s201",
-            "term": "tax",
-            "definition": "\"tax\" any imposition, duty, levy, royalty or revenue accruing to government in full or in part under this Act or any other law"
+            "term": "banking",
+            "definition": "\"banking\" means business conducted or services offered by a bank"
           },
           {
             "section_id": "NTA-2025-s201",
-            "term": "year of assessment",
-            "definition": "\"year of assessment\" government tax year being 1 January to 31 December of any year."
+            "term": "insurance",
+            "definition": "\"insurance\" includes assurance"
+          }
+        ]
+      },
+      "seq": 63
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:21:24.884Z",
+      "agent": "critic",
+      "text": "Critic read claim c3 (NTAA-2025-s9): supported",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:21:24.884Z",
+        "detail": {
+          "claim_id": "c3",
+          "piece": "NTAA-2025-s9",
+          "attempt": 1,
+          "verdict": "supported",
+          "struck_because": null,
+          "quote_verified": true,
+          "definitions": [
+            "NTAA-2025-s147:tax authority",
+            "NTAA-2025-s147:relevant tax authority",
+            "NTAA-2025-s147:taxable person",
+            "NTA-2025-s201:beneficial owner",
+            "NTA-2025-s201:partnership"
+          ],
+          "content": "rence of a change in its particulars, notify the relevant tax authority of the change. … The change referred to in subsection (1) includes — (a) name, including trading name, location of business, telephone numbers or e-mail address and registered address\", \"qualifier\": null, \"struck_because\": null}"
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_pvg0lhq1",
+          "decision_id": "req_pvg0lhq1",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4884,
+          "output_tokens": 1155,
+          "latency_ms": 21074,
+          "signed": true
+        }
+      },
+      "seq": 64
+    },
+    {
+      "type": "verdict",
+      "ts": "2026-10-24T14:21:24.888Z",
+      "agent": "critic",
+      "text": "Critic: claim c3 supported",
+      "data": {
+        "claim": {
+          "id": "c3",
+          "type": "obligation",
+          "text": "The business must notify the tax authority within 30 days of any change in its particulars, including name, trading name, location of business, telephone numbers or email address.",
+          "section_ids": [
+            "NTAA-2025-s9"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        "verdict": "supported",
+        "reason": "The business is a sole proprietor carrying on retail trade with premises, which constitutes a \"taxable person\" under the definition (carries out economic activity in a place for the purpose of obtaining income by way of trade or business), and section 9(1) and (2)(a) impose the notification obligation within 30 days for changes including name, trading name, location, telephone numbers, and email address.",
+        "quote": "Every taxable person shall, within 30 days of the occurrence of a change in its particulars, notify the relevant tax authority of the change. … The change referred to in subsection (1) includes — (a) name, including trading name, location of business, telephone numbers or e-mail address and registered address",
+        "quote_verified": true,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_pvg0lhq1",
+          "decision_id": "req_pvg0lhq1",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4884,
+          "output_tokens": 1155,
+          "latency_ms": 21074,
+          "signed": true
+        },
+        "definitions_used": [
+          "NTAA-2025-s147",
+          "NTA-2025-s201"
+        ],
+        "definitions": [
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "tax authority",
+            "definition": "\"Tax Authority\" means the Nigeria Revenue Service, or the Revenue Authority of a State or the Federal Capital Territory in Nigeria"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "relevant tax authority",
+            "definition": "\"relevant tax authority\" means Nigeria Revenue Service, the Internal Revenue Service of a State or the Federal Capital Territory in Nigeria"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
+          },
+          {
+            "section_id": "NTA-2025-s201",
+            "term": "beneficial owner",
+            "definition": "\"beneficial owner\" means a person who has ownership, control, rights, indirect benefit or beneficial interest over shares or clients, or over income, goods, services or assets subject to tax, or on whose behalf a transaction is carried out"
+          },
+          {
+            "section_id": "NTA-2025-s201",
+            "term": "partnership",
+            "definition": "\"partnership\" means an association, or a body of two or more persons who have agreed to combine their rights, powers, property, labour or skill for the purpose of carrying on a trade or business and sharing the profit"
+          }
+        ]
+      },
+      "seq": 65
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:21:51.284Z",
+      "agent": "critic",
+      "text": "Critic read claim c4 (NTAA-2025-s14): supported",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:21:51.284Z",
+        "detail": {
+          "claim_id": "c4",
+          "piece": "NTAA-2025-s14",
+          "attempt": 1,
+          "verdict": "supported",
+          "struck_because": null,
+          "quote_verified": true,
+          "definitions": [
+            "NTAA-2025-s147:relevant tax authority",
+            "NTAA-2025-s147:employment"
+          ],
+          "content": "han 31 January of each year in respect of all employees in its employment in the preceding year. … The returns shall disclose for each employee gross emoluments, including allowances and benefits in kind, total deductions, net emoluments and tax deducted.\", \"qualifier\": null, \"struck_because\": null}"
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_xm0rsyoo",
+          "decision_id": "req_xm0rsyoo",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4656,
+          "output_tokens": 1065,
+          "latency_ms": 26350,
+          "signed": true
+        }
+      },
+      "seq": 66
+    },
+    {
+      "type": "verdict",
+      "ts": "2026-10-24T14:21:51.285Z",
+      "agent": "critic",
+      "text": "Critic: claim c4 supported",
+      "data": {
+        "claim": {
+          "id": "c4",
+          "type": "obligation",
+          "text": "As an employer with three employees, the business must file a PAYE return for all emoluments paid to its employees by 31 January each year, disclosing gross emoluments and allowances.",
+          "section_ids": [
+            "NTAA-2025-s14"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        "verdict": "supported",
+        "reason": "The business has three employees, making it an employer under the definition of employment (any appointment for which remuneration is payable), and section 14(1) requires employers to file a PAYE return by 31 January each year, while subsection (2) requires disclosure of gross emoluments including allowances.",
+        "quote": "An employer shall file a return with the relevant tax authority for all emoluments paid to its employees, not later than 31 January of each year in respect of all employees in its employment in the preceding year. … The returns shall disclose for each employee gross emoluments, including allowances and benefits in kind, total deductions, net emoluments and tax deducted.",
+        "quote_verified": true,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_xm0rsyoo",
+          "decision_id": "req_xm0rsyoo",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4656,
+          "output_tokens": 1065,
+          "latency_ms": 26350,
+          "signed": true
+        },
+        "definitions_used": [
+          "NTAA-2025-s147"
+        ],
+        "definitions": [
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "relevant tax authority",
+            "definition": "\"relevant tax authority\" means Nigeria Revenue Service, the Internal Revenue Service of a State or the Federal Capital Territory in Nigeria"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "employment",
+            "definition": "\"employment\" includes any appointment or office, whether public or otherwise, for which remuneration is payable"
+          }
+        ]
+      },
+      "seq": 67
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:22:06.105Z",
+      "agent": "critic",
+      "text": "Critic read claim c5 (NTA-2025-s143): struck",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:22:06.105Z",
+        "detail": {
+          "claim_id": "c5",
+          "piece": "NTA-2025-s143",
+          "attempt": 1,
+          "verdict": "struck",
+          "struck_because": "not_established",
+          "quote_verified": true,
+          "definitions": [],
+          "content": "es not establish any registration or charging obligation for this business, nor does it mention exemptions in Part IV of Chapter Eight.\", \"quote\": \"Value Added Tax (VAT) is imposed in accordance with the provisions of chapter six of this Act.\", \"qualifier\": null, \"struck_because\": \"not_established\"}"
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_8ld4jqha",
+          "decision_id": "req_8ld4jqha",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4462,
+          "output_tokens": 563,
+          "latency_ms": 14776,
+          "signed": true
+        }
+      },
+      "seq": 68
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:22:24.456Z",
+      "agent": "critic",
+      "text": "Critic read claim c5 (NTA-2025-s144): struck",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:22:24.456Z",
+        "detail": {
+          "claim_id": "c5",
+          "piece": "NTA-2025-s144",
+          "attempt": 1,
+          "verdict": "struck",
+          "struck_because": "not_established",
+          "quote_verified": true,
+          "definitions": [],
+          "content": "lies subject to exemptions, but does not establish any registration or charging obligation for this business.\", \"quote\": \"Subject to the exemptions in Part IV of Chapter Eight of this Act, VAT shall be paid on all taxable supplies in Nigeria.\", \"qualifier\": null, \"struck_because\": \"not_established\"}"
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_sve7k0ty",
+          "decision_id": "req_sve7k0ty",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4146,
+          "output_tokens": 592,
+          "latency_ms": 18301,
+          "signed": true
+        }
+      },
+      "seq": 69
+    },
+    {
+      "type": "verdict",
+      "ts": "2026-10-24T14:22:24.469Z",
+      "agent": "critic",
+      "text": "Critic: claim c5 struck",
+      "data": {
+        "claim": {
+          "id": "c5",
+          "type": "obligation",
+          "text": "The business must register for Value Added Tax and charge VAT on taxable supplies, as VAT is imposed on all taxable supplies in Nigeria subject to exemptions in Part IV of Chapter Eight.",
+          "section_ids": [
+            "NTA-2025-s143",
+            "NTA-2025-s144"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        "verdict": "struck",
+        "reason": "no piece supports the claim",
+        "quote": null,
+        "quote_verified": false,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_sve7k0ty",
+          "decision_id": "req_sve7k0ty",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4146,
+          "output_tokens": 592,
+          "latency_ms": 18301,
+          "signed": true
+        },
+        "definitions_used": [],
+        "definitions": []
+      },
+      "seq": 70
+    },
+    {
+      "type": "trace",
+      "ts": "2026-10-24T14:22:43.799Z",
+      "agent": "critic",
+      "text": "Critic read claim c6 (NTAA-2025-s22): struck",
+      "data": {
+        "kind": "model_turn",
+        "ts": "2026-10-24T14:22:43.799Z",
+        "detail": {
+          "claim_id": "c6",
+          "piece": "NTAA-2025-s22",
+          "attempt": 1,
+          "verdict": "struck",
+          "struck_because": "disapplies",
+          "quote_verified": true,
+          "definitions": [
+            "NTAA-2025-s147:taxable person",
+            "NTAA-2025-s147:small business",
+            "NTA-2025-s201:small company",
+            "NTAA-2025-s147:registration",
+            "NTAA-2025-s147:supply"
+          ],
+          "content": "t the definition of a small business, and section 22(4) expressly provides that the VAT return filing obligation in subsection (1) does not apply to a small business.\", \"quote\": \"The provision of subsection (1) shall not apply to a small business.\", \"qualifier\": null, \"struck_because\": \"disapplies\"}"
+        },
+        "receipt": {
+          "receipt_id": "rcpt_req_dm8qvdhh",
+          "decision_id": "req_dm8qvdhh",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 5073,
+          "output_tokens": 869,
+          "latency_ms": 19268,
+          "signed": true
+        }
+      },
+      "seq": 71
+    },
+    {
+      "type": "verdict",
+      "ts": "2026-10-24T14:22:43.800Z",
+      "agent": "critic",
+      "text": "Critic: claim c6 struck",
+      "data": {
+        "claim": {
+          "id": "c6",
+          "type": "obligation",
+          "text": "The business must submit a VAT return to the Service in the prescribed form on or before the 21st day of the following month.",
+          "section_ids": [
+            "NTAA-2025-s22"
+          ],
+          "tier": "federal",
+          "agency": "Nigeria Revenue Service"
+        },
+        "verdict": "struck",
+        "reason": "The shop's turnover band under_25m (≤ N25m) and fixed assets under_250m (< N250m) meet the definition of a small business, and section 22(4) expressly provides that the VAT return filing obligation in subsection (1) does not apply to a small business.",
+        "quote": "The provision of subsection (1) shall not apply to a small business.",
+        "quote_verified": true,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_dm8qvdhh",
+          "decision_id": "req_dm8qvdhh",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 5073,
+          "output_tokens": 869,
+          "latency_ms": 19268,
+          "signed": true
+        },
+        "definitions_used": [
+          "NTAA-2025-s147",
+          "NTA-2025-s201"
+        ],
+        "definitions": [
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "small business",
+            "definition": "\"small business\" means a business that earns gross turnover of N50,000,000 or less per annum with total fixed assets less than N250,000,000, provided that any business providing professional services shall not be classified as a small business"
           },
           {
             "section_id": "NTA-2025-s201",
@@ -1434,18 +1913,18 @@
             "definition": "\"small company\" a business that earns gross turnover of N100,000,000 or less per annum with total fixed assets not exceeding N250,000,000."
           },
           {
-            "section_id": "NTA-2025-s201",
-            "term": "company",
-            "definition": "\"company\" a company or corporation, established by or under any law in force in Nigeria or elsewhere ; \"compensating payments'' means any payments made in lieu of interest or dividend under a Regulated Securities Lending Transaction"
+            "section_id": "NTAA-2025-s147",
+            "term": "registration",
+            "definition": "\"registration\" means action or process of registering or of being registered for tax purposes in accordance with this Act"
           },
           {
             "section_id": "NTAA-2025-s147",
-            "term": "president",
-            "definition": "\"President\" means the President of the Federal Republic of Nigeria"
+            "term": "supply",
+            "definition": "\"supply\" means any transaction where the whole property in the goods is transferred or where the agreement expressly contemplates that this will happen and in particular includes the sale and delivery of goods or services used outside the business, the letting out of goods on hire or leasing and any disposal of goods or furnishing of services"
           }
         ]
       },
-      "seq": 58
+      "seq": 72
     }
   ],
   "result": {
@@ -1466,9 +1945,9 @@
         {
           "id": "c1",
           "type": "obligation",
-          "text": "The business must charge Value Added Tax at 7.5% on the value of its taxable supplies.",
+          "text": "The business must register with the relevant tax authority and obtain a Taxpayer Identification Number (Tax ID) for compliance with tax obligations.",
           "section_ids": [
-            "NTA-2025-s147"
+            "NTAA-2025-s4"
           ],
           "tier": "federal",
           "agency": null
@@ -1476,38 +1955,63 @@
         {
           "id": "c2",
           "type": "obligation",
-          "text": "VAT is payable on all taxable supplies in Nigeria, subject to the exemptions in Part IV of Chapter Eight of the Nigeria Tax Act.",
+          "text": "The Tax ID obtained must be stated on all returns, notices, correspondence and documents submitted for tax compliance, and on documents prepared in respect of transactions.",
           "section_ids": [
-            "NTA-2025-s144"
+            "NTAA-2025-s8"
           ],
           "tier": "federal",
           "agency": null
         },
         {
           "id": "c3",
-          "type": "exemption",
-          "text": "The sole proprietor is not liable for Companies Income Tax under NTA-2025-s56, which imposes tax only on companies.",
+          "type": "obligation",
+          "text": "The business must notify the tax authority within 30 days of any change in its particulars, including name, trading name, location of business, telephone numbers or email address.",
           "section_ids": [
-            "NTA-2025-s56"
+            "NTAA-2025-s9"
           ],
           "tier": "federal",
           "agency": null
+        },
+        {
+          "id": "c4",
+          "type": "obligation",
+          "text": "As an employer with three employees, the business must file a PAYE return for all emoluments paid to its employees by 31 January each year, disclosing gross emoluments and allowances.",
+          "section_ids": [
+            "NTAA-2025-s14"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        {
+          "id": "c5",
+          "type": "obligation",
+          "text": "The business must register for Value Added Tax and charge VAT on taxable supplies, as VAT is imposed on all taxable supplies in Nigeria subject to exemptions in Part IV of Chapter Eight.",
+          "section_ids": [
+            "NTA-2025-s143",
+            "NTA-2025-s144"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        {
+          "id": "c6",
+          "type": "obligation",
+          "text": "The business must submit a VAT return to the Service in the prescribed form on or before the 21st day of the following month.",
+          "section_ids": [
+            "NTAA-2025-s22"
+          ],
+          "tier": "federal",
+          "agency": "Nigeria Revenue Service"
         }
       ],
       "notes": [
-        "The business has three employees; PAYE obligations are not covered by the sections read in this session.",
-        "Coverage revision failed (Meterless server error: HTTP 502 {\"error\":{\"message\":\"/nemotron-3.5-lightning-30b-a3b_empty_response\",\"type\":\"api_error\"); kept the draft from before it.",
-        "Removed 1 note(s) saying something was not found or not loaded, with no matching unanswered entry."
+        "The business is a sole proprietor with annual turnover under N25,000,000 and fixed assets under N250,000,000, employing three staff. VAT registration threshold and small‑business exemptions have not been verified against the loaded federal statutes.",
+        "Coverage revision failed (Meterless server error: HTTP 502 {\"error\":{\"message\":\"/nemotron-3.5-lightning-30b-a3b_empty_response\",\"type\":\"api_error\"); kept the draft from before it."
       ],
       "unanswered": [
-        "Registration and Tax Identification Number (TIN) requirements for a sole proprietor.",
-        "Personal Income Tax obligations for the sole proprietor's business profits.",
-        "Employer PAYE deduction and remittance for the three employees.",
-        "VAT return filing and payment procedures.",
-        "Record‑keeping and returns requirements under the Acts.",
-        "Any state or local government levies (e.g., signage, premises) not covered by the federal loaded data.",
-        "Checklist (a) Registration and tax identification: no claim after a targeted search of NTAA-2025 CHAPTER ONE – OBJECTIVE, APPLICATION, JURISDICTION AND REGISTRATION OF TAX AUTHORITIES / PART II – REGISTRATION (s4-s9).",
-        "Checklist (c) Employer obligations (PAYE deduction and remittance): no claim after a targeted search of NTAA-2025 CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS / PART I – RETURNS (s10-s33).",
+        "Personal income tax on business profits: the loaded federal Acts do not contain a read section that imposes personal income tax on a sole proprietor's profits; further search required.",
+        "Development levy or other business levies: no read section in the loaded data imposes a levy on this business profile; State or LGA legislation not loaded.",
+        "Checklist (b) Tax on business profits (personal income tax for a sole proprietor): no claim after a targeted search of NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS / PART 1 – IMPOSITION OF TAX ON INCOME, PROFITS OR GAINS (s3-s5); NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS / PART VII – ASCERTAINMENT OF TOTAL INCOME OF AN INDIVIDUAL (s28-s32); NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS / PART IX – RATES OF TAX (s56-s58).",
         "Checklist (e) Record keeping and returns: no claim after a targeted search of NTAA-2025 CHAPTER TWO – RETURNS, ASSESSMENT AND PAYMENTS / PART I – RETURNS (s10-s33).",
         "Checklist (f) Any levy the Acts impose on businesses of this profile: no claim after a targeted search of NTA-2025 CHAPTER TWO – TAXATION OF INCOME OF PERSONS / PART X – DEVELOPMENT LEVY (s59-s59); NTA-2025 CHAPTER SEVEN SURCHARGE (s158-s161)."
       ]
@@ -1517,30 +2021,30 @@
         "claim": {
           "id": "c1",
           "type": "obligation",
-          "text": "The business must charge Value Added Tax at 7.5% on the value of its taxable supplies.",
+          "text": "The business must register with the relevant tax authority and obtain a Taxpayer Identification Number (Tax ID) for compliance with tax obligations.",
           "section_ids": [
-            "NTA-2025-s147"
+            "NTAA-2025-s4"
           ],
           "tier": "federal",
           "agency": null
         },
-        "verdict": "struck",
-        "reason": "text does not establish the claim: The quoted text states that VAT shall be charged at 7.5% on all taxable supplies, but it does not specify that the business must charge it; the passive construction does not assign the duty to the business, and the text includes a qualification ('Subject to the provisions of Part IX') that the claim omits.",
-        "quote": "VAT shall be charged on the value of all taxable supplies at the rate of 7.5%.",
+        "verdict": "supported",
+        "reason": "The business is a sole proprietor carrying on retail trade with premises, which constitutes a \"taxable person\" under the definition (carries out economic activity in a place for the purpose of obtaining income by way of trade or business), and section 4 imposes the registration and Tax ID obligation on every taxable person.",
+        "quote": "Every taxable person shall register with the relevant tax authority and obtain a Taxpayer Identification (\"Tax ID\") for the purpose of compliance with tax obligations.",
         "quote_verified": true,
         "qualifier": null,
         "receipt": {
-          "receipt_id": "rcpt_req_atjzbvuv",
-          "decision_id": "req_atjzbvuv",
+          "receipt_id": "rcpt_req_7y88ll9p",
+          "decision_id": "req_7y88ll9p",
           "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "provider": "nvidia",
           "label": "Nemotron 3 Ultra 550B A55B",
           "tier": "C",
           "kind": "cloud",
-          "input_tokens": 4396,
-          "output_tokens": 3197,
-          "latency_ms": 47504,
+          "input_tokens": 4566,
+          "output_tokens": 712,
+          "latency_ms": 16738,
           "signed": true
         },
         "definitions_used": [
@@ -1550,13 +2054,18 @@
         "definitions": [
           {
             "section_id": "NTAA-2025-s147",
-            "term": "business",
-            "definition": "\"business\" includes any economic activity such as trade, commerce, manufacturing, service or any activity carried out for the purpose of earning income"
+            "term": "relevant tax authority",
+            "definition": "\"relevant tax authority\" means Nigeria Revenue Service, the Internal Revenue Service of a State or the Federal Capital Territory in Nigeria"
           },
           {
             "section_id": "NTA-2025-s201",
-            "term": "tax",
-            "definition": "\"tax\" any imposition, duty, levy, royalty or revenue accruing to government in full or in part under this Act or any other law"
+            "term": "tax id",
+            "definition": "\"tax ID\" is as provided for under Nigeria Tax Administration Act"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
           }
         ]
       },
@@ -1564,76 +2073,30 @@
         "claim": {
           "id": "c2",
           "type": "obligation",
-          "text": "VAT is payable on all taxable supplies in Nigeria, subject to the exemptions in Part IV of Chapter Eight of the Nigeria Tax Act.",
+          "text": "The Tax ID obtained must be stated on all returns, notices, correspondence and documents submitted for tax compliance, and on documents prepared in respect of transactions.",
           "section_ids": [
-            "NTA-2025-s144"
+            "NTAA-2025-s8"
           ],
           "tier": "federal",
           "agency": null
         },
         "verdict": "supported",
-        "reason": "The quoted text states VAT shall be paid on all taxable supplies in Nigeria subject to exemptions in Part IV of Chapter Eight, and the shop operates in Lagos (within Nigeria) making taxable supplies.",
-        "quote": "Subject to the exemptions in Part IV of Chapter Eight of this Act, VAT shall be paid on all taxable supplies in Nigeria.",
+        "reason": "The business is a sole proprietor carrying on retail trade with premises, which constitutes a \"taxable person\" under the definition (carries out economic activity in a place for the purpose of obtaining income by way of trade or business), and section 8(1)(a) and (b) requires the Tax ID to be stated on returns, notices, correspondence, documents for tax compliance, and on documents prepared in respect of transactions.",
+        "quote": "A Tax ID shall be – (a) stated on a return, notice, correspondence or documents submitted, lodged or used for the purposes of tax compliance ; (b) stated on a document prepared, produced, issued or submitted in respect of a transaction",
         "quote_verified": true,
         "qualifier": null,
         "receipt": {
-          "receipt_id": "rcpt_req_rx0bfdtz",
-          "decision_id": "req_rx0bfdtz",
+          "receipt_id": "rcpt_req_cs4t9xlq",
+          "decision_id": "req_cs4t9xlq",
           "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
           "provider": "nvidia",
           "label": "Nemotron 3 Ultra 550B A55B",
           "tier": "C",
           "kind": "cloud",
-          "input_tokens": 3811,
-          "output_tokens": 642,
-          "latency_ms": 5446,
-          "signed": true
-        },
-        "definitions_used": [
-          "NTA-2025-s201"
-        ],
-        "definitions": [
-          {
-            "section_id": "NTA-2025-s201",
-            "term": "nigeria",
-            "definition": "\"Nigeria\" means the Federal Republic of Nigeria, and when used in a geographical sense, includes the territorial waters of the Federal Republic of Nigeria, and any area outside the territorial waters, including the continental shelf, which in accordance with international law has been or may hereafter be designated, under the law of the Federal Republic of Nigeria, as an area within which the right of the Federal Republic of Nigeria with respect to the seabed, its subsoil, its superjacent waters and their natural resources may be exercised now and in the future"
-          },
-          {
-            "section_id": "NTA-2025-s201",
-            "term": "tax",
-            "definition": "\"tax\" any imposition, duty, levy, royalty or revenue accruing to government in full or in part under this Act or any other law"
-          }
-        ]
-      },
-      {
-        "claim": {
-          "id": "c3",
-          "type": "exemption",
-          "text": "The sole proprietor is not liable for Companies Income Tax under NTA-2025-s56, which imposes tax only on companies.",
-          "section_ids": [
-            "NTA-2025-s56"
-          ],
-          "tier": "federal",
-          "agency": null
-        },
-        "verdict": "supported",
-        "reason": "The quoted text levies tax on the total profits of every company; the definition of 'company' is a company or corporation, and the profile shows a sole proprietor, which is not a company, so Companies Income Tax does not apply to this business.",
-        "quote": "Tax shall be levied, for each year of assessment in respect of total profits of every company",
-        "quote_verified": true,
-        "qualifier": null,
-        "receipt": {
-          "receipt_id": "rcpt_req_2towgee7",
-          "decision_id": "req_2towgee7",
-          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
-          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
-          "provider": "nvidia",
-          "label": "Nemotron 3 Ultra 550B A55B",
-          "tier": "C",
-          "kind": "cloud",
-          "input_tokens": 5013,
-          "output_tokens": 1016,
-          "latency_ms": 12115,
+          "input_tokens": 4812,
+          "output_tokens": 1281,
+          "latency_ms": 34332,
           "signed": true
         },
         "definitions_used": [
@@ -1643,18 +2106,222 @@
         "definitions": [
           {
             "section_id": "NTA-2025-s201",
-            "term": "income tax",
-            "definition": "\"income tax\" means any tax chargeable under Chapters Two and Three of this Act"
+            "term": "tax id",
+            "definition": "\"tax ID\" is as provided for under Nigeria Tax Administration Act"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "document",
+            "definition": "\"document\" includes any record of information evidencing a transaction, supporting accounts or schedules, accounting or inventory ledger, including reports, agreements, correspondences, memoranda, minutes of meeting or any such record however compiled, recorded or stored, whether written or printed or micro-film, digital, magnetic, electronic or optical form or otherwise, and all types of information stored in digital devices, computer or any other similar equipment"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "government",
+            "definition": "\"Government\" means the Federal, State, the Federal Capital Territory or Local Government Council and shall include, as the case may be, any agency of Government"
           },
           {
             "section_id": "NTA-2025-s201",
-            "term": "tax",
-            "definition": "\"tax\" any imposition, duty, levy, royalty or revenue accruing to government in full or in part under this Act or any other law"
+            "term": "banking",
+            "definition": "\"banking\" means business conducted or services offered by a bank"
           },
           {
             "section_id": "NTA-2025-s201",
-            "term": "year of assessment",
-            "definition": "\"year of assessment\" government tax year being 1 January to 31 December of any year."
+            "term": "insurance",
+            "definition": "\"insurance\" includes assurance"
+          }
+        ]
+      },
+      {
+        "claim": {
+          "id": "c3",
+          "type": "obligation",
+          "text": "The business must notify the tax authority within 30 days of any change in its particulars, including name, trading name, location of business, telephone numbers or email address.",
+          "section_ids": [
+            "NTAA-2025-s9"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        "verdict": "supported",
+        "reason": "The business is a sole proprietor carrying on retail trade with premises, which constitutes a \"taxable person\" under the definition (carries out economic activity in a place for the purpose of obtaining income by way of trade or business), and section 9(1) and (2)(a) impose the notification obligation within 30 days for changes including name, trading name, location, telephone numbers, and email address.",
+        "quote": "Every taxable person shall, within 30 days of the occurrence of a change in its particulars, notify the relevant tax authority of the change. … The change referred to in subsection (1) includes — (a) name, including trading name, location of business, telephone numbers or e-mail address and registered address",
+        "quote_verified": true,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_pvg0lhq1",
+          "decision_id": "req_pvg0lhq1",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4884,
+          "output_tokens": 1155,
+          "latency_ms": 21074,
+          "signed": true
+        },
+        "definitions_used": [
+          "NTAA-2025-s147",
+          "NTA-2025-s201"
+        ],
+        "definitions": [
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "tax authority",
+            "definition": "\"Tax Authority\" means the Nigeria Revenue Service, or the Revenue Authority of a State or the Federal Capital Territory in Nigeria"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "relevant tax authority",
+            "definition": "\"relevant tax authority\" means Nigeria Revenue Service, the Internal Revenue Service of a State or the Federal Capital Territory in Nigeria"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
+          },
+          {
+            "section_id": "NTA-2025-s201",
+            "term": "beneficial owner",
+            "definition": "\"beneficial owner\" means a person who has ownership, control, rights, indirect benefit or beneficial interest over shares or clients, or over income, goods, services or assets subject to tax, or on whose behalf a transaction is carried out"
+          },
+          {
+            "section_id": "NTA-2025-s201",
+            "term": "partnership",
+            "definition": "\"partnership\" means an association, or a body of two or more persons who have agreed to combine their rights, powers, property, labour or skill for the purpose of carrying on a trade or business and sharing the profit"
+          }
+        ]
+      },
+      {
+        "claim": {
+          "id": "c4",
+          "type": "obligation",
+          "text": "As an employer with three employees, the business must file a PAYE return for all emoluments paid to its employees by 31 January each year, disclosing gross emoluments and allowances.",
+          "section_ids": [
+            "NTAA-2025-s14"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        "verdict": "supported",
+        "reason": "The business has three employees, making it an employer under the definition of employment (any appointment for which remuneration is payable), and section 14(1) requires employers to file a PAYE return by 31 January each year, while subsection (2) requires disclosure of gross emoluments including allowances.",
+        "quote": "An employer shall file a return with the relevant tax authority for all emoluments paid to its employees, not later than 31 January of each year in respect of all employees in its employment in the preceding year. … The returns shall disclose for each employee gross emoluments, including allowances and benefits in kind, total deductions, net emoluments and tax deducted.",
+        "quote_verified": true,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_xm0rsyoo",
+          "decision_id": "req_xm0rsyoo",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4656,
+          "output_tokens": 1065,
+          "latency_ms": 26350,
+          "signed": true
+        },
+        "definitions_used": [
+          "NTAA-2025-s147"
+        ],
+        "definitions": [
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "relevant tax authority",
+            "definition": "\"relevant tax authority\" means Nigeria Revenue Service, the Internal Revenue Service of a State or the Federal Capital Territory in Nigeria"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "employment",
+            "definition": "\"employment\" includes any appointment or office, whether public or otherwise, for which remuneration is payable"
+          }
+        ]
+      },
+      {
+        "claim": {
+          "id": "c5",
+          "type": "obligation",
+          "text": "The business must register for Value Added Tax and charge VAT on taxable supplies, as VAT is imposed on all taxable supplies in Nigeria subject to exemptions in Part IV of Chapter Eight.",
+          "section_ids": [
+            "NTA-2025-s143",
+            "NTA-2025-s144"
+          ],
+          "tier": "federal",
+          "agency": null
+        },
+        "verdict": "struck",
+        "reason": "no piece supports the claim",
+        "quote": null,
+        "quote_verified": false,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_sve7k0ty",
+          "decision_id": "req_sve7k0ty",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 4146,
+          "output_tokens": 592,
+          "latency_ms": 18301,
+          "signed": true
+        },
+        "definitions_used": [],
+        "definitions": []
+      },
+      {
+        "claim": {
+          "id": "c6",
+          "type": "obligation",
+          "text": "The business must submit a VAT return to the Service in the prescribed form on or before the 21st day of the following month.",
+          "section_ids": [
+            "NTAA-2025-s22"
+          ],
+          "tier": "federal",
+          "agency": "Nigeria Revenue Service"
+        },
+        "verdict": "struck",
+        "reason": "The shop's turnover band under_25m (≤ N25m) and fixed assets under_250m (< N250m) meet the definition of a small business, and section 22(4) expressly provides that the VAT return filing obligation in subsection (1) does not apply to a small business.",
+        "quote": "The provision of subsection (1) shall not apply to a small business.",
+        "quote_verified": true,
+        "qualifier": null,
+        "receipt": {
+          "receipt_id": "rcpt_req_dm8qvdhh",
+          "decision_id": "req_dm8qvdhh",
+          "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+          "provider": "nvidia",
+          "label": "Nemotron 3 Ultra 550B A55B",
+          "tier": "C",
+          "kind": "cloud",
+          "input_tokens": 5073,
+          "output_tokens": 869,
+          "latency_ms": 19268,
+          "signed": true
+        },
+        "definitions_used": [
+          "NTAA-2025-s147",
+          "NTA-2025-s201"
+        ],
+        "definitions": [
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "taxable person",
+            "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
+          },
+          {
+            "section_id": "NTAA-2025-s147",
+            "term": "small business",
+            "definition": "\"small business\" means a business that earns gross turnover of N50,000,000 or less per annum with total fixed assets less than N250,000,000, provided that any business providing professional services shall not be classified as a small business"
           },
           {
             "section_id": "NTA-2025-s201",
@@ -1662,14 +2329,14 @@
             "definition": "\"small company\" a business that earns gross turnover of N100,000,000 or less per annum with total fixed assets not exceeding N250,000,000."
           },
           {
-            "section_id": "NTA-2025-s201",
-            "term": "company",
-            "definition": "\"company\" a company or corporation, established by or under any law in force in Nigeria or elsewhere ; \"compensating payments'' means any payments made in lieu of interest or dividend under a Regulated Securities Lending Transaction"
+            "section_id": "NTAA-2025-s147",
+            "term": "registration",
+            "definition": "\"registration\" means action or process of registering or of being registered for tax purposes in accordance with this Act"
           },
           {
             "section_id": "NTAA-2025-s147",
-            "term": "president",
-            "definition": "\"President\" means the President of the Federal Republic of Nigeria"
+            "term": "supply",
+            "definition": "\"supply\" means any transaction where the whole property in the goods is transferred or where the agreement expressly contemplates that this will happen and in particular includes the sale and delivery of goods or services used outside the business, the letting out of goods on hire or leasing and any disposal of goods or furnishing of services"
           }
         ]
       }
@@ -1678,8 +2345,8 @@
       {
         "call": 1,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_4m7cug93",
-        "decision_id": "req_4m7cug93",
+        "receipt_id": "rcpt_req_xnnmcxx0",
+        "decision_id": "req_xnnmcxx0",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
@@ -1687,271 +2354,383 @@
         "tier": "A",
         "kind": "cloud",
         "input_tokens": 4979,
-        "output_tokens": 379,
-        "latency_ms": 4475,
+        "output_tokens": 365,
+        "latency_ms": 5362,
         "signed": true
       },
       {
         "call": 2,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_dttcm4k1",
-        "decision_id": "req_dttcm4k1",
+        "receipt_id": "rcpt_req_y4dsy66f",
+        "decision_id": "req_y4dsy66f",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 5253,
-        "output_tokens": 106,
-        "latency_ms": 1770,
+        "input_tokens": 5941,
+        "output_tokens": 115,
+        "latency_ms": 1372,
         "signed": true
       },
       {
         "call": 3,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_548peupi",
-        "decision_id": "req_548peupi",
+        "receipt_id": "rcpt_req_wfb6m6nh",
+        "decision_id": "req_wfb6m6nh",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 5734,
-        "output_tokens": 61,
-        "latency_ms": 1008,
+        "input_tokens": 6152,
+        "output_tokens": 103,
+        "latency_ms": 1240,
         "signed": true
       },
       {
         "call": 4,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_7axx5xiv",
-        "decision_id": "req_7axx5xiv",
+        "receipt_id": "rcpt_req_f4y0xf3x",
+        "decision_id": "req_f4y0xf3x",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 9886,
-        "output_tokens": 639,
-        "latency_ms": 7835,
+        "input_tokens": 6820,
+        "output_tokens": 104,
+        "latency_ms": 1326,
         "signed": true
       },
       {
         "call": 5,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_ov8gldcr",
-        "decision_id": "req_ov8gldcr",
+        "receipt_id": "rcpt_req_boasowxs",
+        "decision_id": "req_boasowxs",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 6139,
-        "output_tokens": 148,
-        "latency_ms": 1692,
+        "input_tokens": 6360,
+        "output_tokens": 136,
+        "latency_ms": 1664,
         "signed": true
       },
       {
         "call": 6,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_hdb2dchd",
-        "decision_id": "req_hdb2dchd",
+        "receipt_id": "rcpt_req_gfx3vvnb",
+        "decision_id": "req_gfx3vvnb",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 7973,
-        "output_tokens": 367,
-        "latency_ms": 3458,
+        "input_tokens": 6761,
+        "output_tokens": 89,
+        "latency_ms": 1314,
         "signed": true
       },
       {
         "call": 7,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_8ayf9fi9",
-        "decision_id": "req_8ayf9fi9",
+        "receipt_id": "rcpt_req_ir6mczkd",
+        "decision_id": "req_ir6mczkd",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 6078,
-        "output_tokens": 101,
-        "latency_ms": 1093,
+        "input_tokens": 10567,
+        "output_tokens": 378,
+        "latency_ms": 3808,
         "signed": true
       },
       {
         "call": 8,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_cax7d484",
-        "decision_id": "req_cax7d484",
+        "receipt_id": "rcpt_req_xuwpv0dh",
+        "decision_id": "req_xuwpv0dh",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 6151,
-        "output_tokens": 2671,
-        "latency_ms": 22754,
+        "input_tokens": 6511,
+        "output_tokens": 89,
+        "latency_ms": 1270,
         "signed": true
       },
       {
         "call": 9,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_fpfzt2cj",
-        "decision_id": "req_fpfzt2cj",
+        "receipt_id": "rcpt_req_1e75lq49",
+        "decision_id": "req_1e75lq49",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 5846,
-        "output_tokens": 284,
-        "latency_ms": 9117,
+        "input_tokens": 6611,
+        "output_tokens": 105,
+        "latency_ms": 1395,
         "signed": true
       },
       {
         "call": 10,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_1elqr5et",
-        "decision_id": "req_1elqr5et",
+        "receipt_id": "rcpt_req_8zul0z3k",
+        "decision_id": "req_8zul0z3k",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 6309,
-        "output_tokens": 668,
-        "latency_ms": 9542,
+        "input_tokens": 9145,
+        "output_tokens": 1919,
+        "latency_ms": 31635,
         "signed": true
       },
       {
         "call": 11,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_xv4i5f67",
-        "decision_id": "req_xv4i5f67",
+        "receipt_id": "rcpt_req_ejunu3c6",
+        "decision_id": "req_ejunu3c6",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 6318,
-        "output_tokens": 363,
-        "latency_ms": 3319,
+        "input_tokens": 6533,
+        "output_tokens": 615,
+        "latency_ms": 5333,
         "signed": true
       },
       {
         "call": 12,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_bzg6rs7l",
-        "decision_id": "req_bzg6rs7l",
+        "receipt_id": "rcpt_req_m7m9ebqa",
+        "decision_id": "req_m7m9ebqa",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 6117,
-        "output_tokens": 176,
-        "latency_ms": 2061,
+        "input_tokens": 7264,
+        "output_tokens": 7049,
+        "latency_ms": 84590,
         "signed": true
       },
       {
         "call": 13,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_uh5te0g4",
-        "decision_id": "req_uh5te0g4",
+        "receipt_id": "rcpt_req_17xu3njk",
+        "decision_id": "req_17xu3njk",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 8802,
-        "output_tokens": 8000,
-        "latency_ms": 117368,
+        "input_tokens": 6432,
+        "output_tokens": 3338,
+        "latency_ms": 37258,
         "signed": true
       },
       {
         "call": 14,
         "agent": "researcher",
-        "receipt_id": "rcpt_req_h352jvn2",
-        "decision_id": "req_h352jvn2",
+        "receipt_id": "rcpt_req_lzkfeatc",
+        "decision_id": "req_lzkfeatc",
         "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
         "label": "Nemotron 3.5 Lightning 30B A3B",
         "tier": "A",
         "kind": "cloud",
-        "input_tokens": 9133,
-        "output_tokens": 3960,
-        "latency_ms": 37299,
+        "input_tokens": 6592,
+        "output_tokens": 1682,
+        "latency_ms": 15409,
         "signed": true
       },
       {
         "call": 15,
-        "agent": "critic",
-        "receipt_id": "rcpt_req_atjzbvuv",
-        "decision_id": "req_atjzbvuv",
-        "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
-        "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "agent": "researcher",
+        "receipt_id": "rcpt_req_969zfq6k",
+        "decision_id": "req_969zfq6k",
+        "requested_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+        "routed_model": "nvidia/nemotron-3.5-lightning-30b-a3b",
         "provider": "nvidia",
-        "label": "Nemotron 3 Ultra 550B A55B",
-        "tier": "C",
+        "label": "Nemotron 3.5 Lightning 30B A3B",
+        "tier": "A",
         "kind": "cloud",
-        "input_tokens": 4396,
-        "output_tokens": 3197,
-        "latency_ms": 47504,
+        "input_tokens": 6347,
+        "output_tokens": 207,
+        "latency_ms": 2196,
         "signed": true
       },
       {
         "call": 16,
         "agent": "critic",
-        "receipt_id": "rcpt_req_rx0bfdtz",
-        "decision_id": "req_rx0bfdtz",
+        "receipt_id": "rcpt_req_7y88ll9p",
+        "decision_id": "req_7y88ll9p",
         "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
         "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
         "provider": "nvidia",
         "label": "Nemotron 3 Ultra 550B A55B",
         "tier": "C",
         "kind": "cloud",
-        "input_tokens": 3811,
-        "output_tokens": 642,
-        "latency_ms": 5446,
+        "input_tokens": 4566,
+        "output_tokens": 712,
+        "latency_ms": 16738,
         "signed": true
       },
       {
         "call": 17,
         "agent": "critic",
-        "receipt_id": "rcpt_req_2towgee7",
-        "decision_id": "req_2towgee7",
+        "receipt_id": "rcpt_req_cs4t9xlq",
+        "decision_id": "req_cs4t9xlq",
         "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
         "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
         "provider": "nvidia",
         "label": "Nemotron 3 Ultra 550B A55B",
         "tier": "C",
         "kind": "cloud",
-        "input_tokens": 5013,
-        "output_tokens": 1016,
-        "latency_ms": 12115,
+        "input_tokens": 4812,
+        "output_tokens": 1281,
+        "latency_ms": 34332,
+        "signed": true
+      },
+      {
+        "call": 18,
+        "agent": "critic",
+        "receipt_id": "rcpt_req_pvg0lhq1",
+        "decision_id": "req_pvg0lhq1",
+        "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "provider": "nvidia",
+        "label": "Nemotron 3 Ultra 550B A55B",
+        "tier": "C",
+        "kind": "cloud",
+        "input_tokens": 4884,
+        "output_tokens": 1155,
+        "latency_ms": 21074,
+        "signed": true
+      },
+      {
+        "call": 19,
+        "agent": "critic",
+        "receipt_id": "rcpt_req_xm0rsyoo",
+        "decision_id": "req_xm0rsyoo",
+        "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "provider": "nvidia",
+        "label": "Nemotron 3 Ultra 550B A55B",
+        "tier": "C",
+        "kind": "cloud",
+        "input_tokens": 4656,
+        "output_tokens": 1065,
+        "latency_ms": 26350,
+        "signed": true
+      },
+      {
+        "call": 20,
+        "agent": "critic",
+        "receipt_id": "rcpt_req_8ld4jqha",
+        "decision_id": "req_8ld4jqha",
+        "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "provider": "nvidia",
+        "label": "Nemotron 3 Ultra 550B A55B",
+        "tier": "C",
+        "kind": "cloud",
+        "input_tokens": 4462,
+        "output_tokens": 563,
+        "latency_ms": 14776,
+        "signed": true
+      },
+      {
+        "call": 21,
+        "agent": "critic",
+        "receipt_id": "rcpt_req_sve7k0ty",
+        "decision_id": "req_sve7k0ty",
+        "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "provider": "nvidia",
+        "label": "Nemotron 3 Ultra 550B A55B",
+        "tier": "C",
+        "kind": "cloud",
+        "input_tokens": 4146,
+        "output_tokens": 592,
+        "latency_ms": 18301,
+        "signed": true
+      },
+      {
+        "call": 22,
+        "agent": "critic",
+        "receipt_id": "rcpt_req_dm8qvdhh",
+        "decision_id": "req_dm8qvdhh",
+        "requested_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "routed_model": "nvidia/nemotron-3-ultra-550b-a55b",
+        "provider": "nvidia",
+        "label": "Nemotron 3 Ultra 550B A55B",
+        "tier": "C",
+        "kind": "cloud",
+        "input_tokens": 5073,
+        "output_tokens": 869,
+        "latency_ms": 19268,
         "signed": true
       }
     ],
     "sections_read": [
       {
+        "section_id": "NTAA-2025-s4",
+        "heading": "Taxable person"
+      },
+      {
+        "section_id": "NTAA-2025-s5",
+        "heading": "Federal, State and Local Government"
+      },
+      {
+        "section_id": "NTAA-2025-s7",
+        "heading": "Issuance of Tax ID"
+      },
+      {
+        "section_id": "NTAA-2025-s8",
+        "heading": "Use of Tax ID"
+      },
+      {
+        "section_id": "NTAA-2025-s9",
+        "heading": "Notification of change of particulars"
+      },
+      {
         "section_id": "NTA-2025-s201",
         "heading": "General interpretation"
+      },
+      {
+        "section_id": "NTAA-2025-s22",
+        "heading": "Returns for value added tax"
+      },
+      {
+        "section_id": "NTAA-2025-s147",
+        "heading": "Interpretation"
+      },
+      {
+        "section_id": "NTAA-2025-s14",
+        "heading": "Pay As You Earn"
       },
       {
         "section_id": "NTA-2025-s143",
@@ -1970,60 +2749,36 @@
         "heading": "Time of Supply"
       },
       {
-        "section_id": "NTA-2025-s147",
-        "heading": "Rate of VAT"
-      },
-      {
-        "section_id": "NTA-2025-s148",
-        "heading": "Value of taxable supplies"
-      },
-      {
-        "section_id": "NTA-2025-s149",
-        "heading": "Value of imported goods"
-      },
-      {
         "section_id": "NTA-2025-s150",
         "heading": "Taxable supply of nonresidents"
       },
       {
-        "section_id": "NTAA-2025-s4",
-        "heading": "Taxable person"
+        "section_id": "NTA-2025-s3",
+        "heading": "Imposition of tax"
       },
       {
-        "section_id": "NTAA-2025-s5",
-        "heading": "Federal, State and Local Government"
+        "section_id": "NTA-2025-s4",
+        "heading": "Income, profits or gains chargeable to tax"
       },
       {
-        "section_id": "NTAA-2025-s6",
-        "heading": "Non-resident person"
+        "section_id": "NTA-2025-s5",
+        "heading": "Chargeability to tax"
       },
       {
-        "section_id": "NTAA-2025-s7",
-        "heading": "Issuance of Tax ID"
+        "section_id": "NTA-2025-s28",
+        "heading": "Total income of an individual"
       },
       {
-        "section_id": "NTAA-2025-s8",
-        "heading": "Use of Tax ID"
-      },
-      {
-        "section_id": "NTAA-2025-s9",
-        "heading": "Notification of change of particulars"
-      },
-      {
-        "section_id": "NTAA-2025-s14",
-        "heading": "Pay As You Earn"
-      },
-      {
-        "section_id": "NTAA-2025-s10",
-        "heading": "Suspension, deregistration and cancellation of Tax ID"
-      },
-      {
-        "section_id": "NTAA-2025-s11",
-        "heading": "Income tax returns for companies"
+        "section_id": "NTA-2025-s30",
+        "heading": "Ascertainment of chargeable income of individuals"
       },
       {
         "section_id": "NTAA-2025-s13",
         "heading": "Income tax returns for individuals"
+      },
+      {
+        "section_id": "NTAA-2025-s23",
+        "heading": "Value added tax fiscalisation system"
       },
       {
         "section_id": "NTAA-2025-s31",
@@ -2032,10 +2787,6 @@
       {
         "section_id": "NTAA-2025-s32",
         "heading": "Return deemed to be furnished by an authorised person"
-      },
-      {
-        "section_id": "NTAA-2025-s33",
-        "heading": "Accreditation of tax agents"
       },
       {
         "section_id": "NTA-2025-s59",
@@ -2056,37 +2807,68 @@
       {
         "section_id": "NTA-2025-s161",
         "heading": "Exemption from Surcharge"
-      },
-      {
-        "section_id": "NTA-2025-s56",
-        "heading": "Rates of tax for companies"
       }
     ],
     "definitions": [
       {
         "section_id": "NTAA-2025-s147",
-        "term": "business",
-        "definition": "\"business\" includes any economic activity such as trade, commerce, manufacturing, service or any activity carried out for the purpose of earning income"
+        "term": "relevant tax authority",
+        "definition": "\"relevant tax authority\" means Nigeria Revenue Service, the Internal Revenue Service of a State or the Federal Capital Territory in Nigeria"
       },
       {
         "section_id": "NTA-2025-s201",
-        "term": "tax",
-        "definition": "\"tax\" any imposition, duty, levy, royalty or revenue accruing to government in full or in part under this Act or any other law"
+        "term": "tax id",
+        "definition": "\"tax ID\" is as provided for under Nigeria Tax Administration Act"
+      },
+      {
+        "section_id": "NTAA-2025-s147",
+        "term": "taxable person",
+        "definition": "\"taxable person\" means person who carries out economic activity in a place or a person exploiting tangible or intangible property for the purpose of obtaining income therefrom by way of trade or business, or an agency of Government acting in that capacity"
+      },
+      {
+        "section_id": "NTAA-2025-s147",
+        "term": "document",
+        "definition": "\"document\" includes any record of information evidencing a transaction, supporting accounts or schedules, accounting or inventory ledger, including reports, agreements, correspondences, memoranda, minutes of meeting or any such record however compiled, recorded or stored, whether written or printed or micro-film, digital, magnetic, electronic or optical form or otherwise, and all types of information stored in digital devices, computer or any other similar equipment"
+      },
+      {
+        "section_id": "NTAA-2025-s147",
+        "term": "government",
+        "definition": "\"Government\" means the Federal, State, the Federal Capital Territory or Local Government Council and shall include, as the case may be, any agency of Government"
       },
       {
         "section_id": "NTA-2025-s201",
-        "term": "nigeria",
-        "definition": "\"Nigeria\" means the Federal Republic of Nigeria, and when used in a geographical sense, includes the territorial waters of the Federal Republic of Nigeria, and any area outside the territorial waters, including the continental shelf, which in accordance with international law has been or may hereafter be designated, under the law of the Federal Republic of Nigeria, as an area within which the right of the Federal Republic of Nigeria with respect to the seabed, its subsoil, its superjacent waters and their natural resources may be exercised now and in the future"
+        "term": "banking",
+        "definition": "\"banking\" means business conducted or services offered by a bank"
       },
       {
         "section_id": "NTA-2025-s201",
-        "term": "income tax",
-        "definition": "\"income tax\" means any tax chargeable under Chapters Two and Three of this Act"
+        "term": "insurance",
+        "definition": "\"insurance\" includes assurance"
+      },
+      {
+        "section_id": "NTAA-2025-s147",
+        "term": "tax authority",
+        "definition": "\"Tax Authority\" means the Nigeria Revenue Service, or the Revenue Authority of a State or the Federal Capital Territory in Nigeria"
       },
       {
         "section_id": "NTA-2025-s201",
-        "term": "year of assessment",
-        "definition": "\"year of assessment\" government tax year being 1 January to 31 December of any year."
+        "term": "beneficial owner",
+        "definition": "\"beneficial owner\" means a person who has ownership, control, rights, indirect benefit or beneficial interest over shares or clients, or over income, goods, services or assets subject to tax, or on whose behalf a transaction is carried out"
+      },
+      {
+        "section_id": "NTA-2025-s201",
+        "term": "partnership",
+        "definition": "\"partnership\" means an association, or a body of two or more persons who have agreed to combine their rights, powers, property, labour or skill for the purpose of carrying on a trade or business and sharing the profit"
+      },
+      {
+        "section_id": "NTAA-2025-s147",
+        "term": "employment",
+        "definition": "\"employment\" includes any appointment or office, whether public or otherwise, for which remuneration is payable"
+      },
+      {
+        "section_id": "NTAA-2025-s147",
+        "term": "small business",
+        "definition": "\"small business\" means a business that earns gross turnover of N50,000,000 or less per annum with total fixed assets less than N250,000,000, provided that any business providing professional services shall not be classified as a small business"
       },
       {
         "section_id": "NTA-2025-s201",
@@ -2094,39 +2876,56 @@
         "definition": "\"small company\" a business that earns gross turnover of N100,000,000 or less per annum with total fixed assets not exceeding N250,000,000."
       },
       {
-        "section_id": "NTA-2025-s201",
-        "term": "company",
-        "definition": "\"company\" a company or corporation, established by or under any law in force in Nigeria or elsewhere ; \"compensating payments'' means any payments made in lieu of interest or dividend under a Regulated Securities Lending Transaction"
+        "section_id": "NTAA-2025-s147",
+        "term": "registration",
+        "definition": "\"registration\" means action or process of registering or of being registered for tax purposes in accordance with this Act"
       },
       {
         "section_id": "NTAA-2025-s147",
-        "term": "president",
-        "definition": "\"President\" means the President of the Federal Republic of Nigeria"
+        "term": "supply",
+        "definition": "\"supply\" means any transaction where the whole property in the goods is transferred or where the agreement expressly contemplates that this will happen and in particular includes the sale and delivery of goods or services used outside the business, the letting out of goods on hire or leasing and any disposal of goods or furnishing of services"
       }
     ],
     "queries": [
       {
-        "sql": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small business%' OR lower(text) LIKE '%small business%') LIMIT 20",
-        "row_count": 0
-      },
-      {
-        "sql": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE act_id='NTA-2025' AND (lower(heading) LIKE '%small company%' OR lower(text) LIKE '%small company%') LIMIT 20",
+        "sql": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE lower(text) LIKE '%small business%' OR lower(heading) LIKE '%small business%' LIMIT 40",
         "row_count": 2
       },
       {
-        "sql": "(repeated query: earlier result reused)",
-        "row_count": 0
+        "sql": "SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE lower(text) LIKE '%small company%' OR lower(heading) LIKE '%small company%' LIMIT 40",
+        "row_count": 4
       }
     ],
     "totals": {
-      "supported": 2,
+      "supported": 4,
       "qualified": 0,
-      "struck": 1,
+      "struck": 2,
       "unchecked": 0,
-      "tokens_in": 107938,
-      "tokens_out": 22778,
-      "model_calls": 17,
-      "signed_receipts": 17
+      "tokens_in": 135614,
+      "tokens_out": 22531,
+      "model_calls": 22,
+      "signed_receipts": 22
+    },
+    "world_run_id": "6b6acf2b-cc5e-4445-9ca4-96b19f6b40e2",
+    "memory": {
+      "retrieved_from_prior_runs": 5,
+      "retrieved_this_run": 5,
+      "created_this_run": 32,
+      "promoted_this_run": 5,
+      "memories_by_layer": {
+        "short_term": 51,
+        "working": 5,
+        "long_term": 8
+      }
+    },
+    "world": {
+      "facts_total": 19,
+      "verified_facts_total": 9,
+      "facts_this_run": 7,
+      "verified_facts_this_run": 4,
+      "entities": 104,
+      "edges": 175,
+      "runs_ingested": 3
     }
   }
 }

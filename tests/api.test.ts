@@ -210,8 +210,9 @@ describe("reference endpoints", () => {
   it("serves the page", async () => {
     const html = await (await fetch(`${base}/`)).text();
     expect(html).toContain("<h1>Tax Map</h1>");
-    expect(html).toContain("Tell Tax Map about your business. It reads Nigeria's 2025 federal tax Acts");
-    expect(html).toContain("How it works");
-    expect(html).toContain("Example values are shown. Change anything that differs for your business.");
+    expect(html).toContain("Tell Tax Map about your business. It reads Nigeria's 2025 tax laws, lists what you owe and what you're exempt from, and shows you the exact section behind every line.");
+    expect(html).toContain("Fill in your business details. Lagos only for now.");
+    expect(html).not.toContain("Example values");
+    expect((await fetch(`${base}/help.json`)).status).toBe(200);
   });
 });

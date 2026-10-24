@@ -35,6 +35,168 @@ function el(tag, opts = {}, ...children) {
   return node;
 }
 
+/* ------------------------------------------------------------------ plain-language guard */
+
+const INTERNAL = /meterless|nemotron|nvidia|nightshift|zetaris|http \d{3}|empty_response|provider_error/i;
+
+/**
+ * Text shown before "Show working" is for the business owner. Messages from the machinery (model,
+ * gateway or database names, HTTP errors) are replaced with a plain line; the working section keeps
+ * the technical detail.
+ */
+function plain(text, fallback) {
+  return INTERNAL.test(text) ? fallback : text;
+}
+const STEP_FAILED = "One background step did not complete, so the answer was kept as it stood before that step.";
+const RUN_FAILED = "The run could not finish because a service it depends on was unavailable. Please try again in a minute.";
+
+/* ------------------------------------------------------------------ help tooltips */
+
+let helpTerms = {};
+let helpCount = 0;
+let openHelp = null;
+
+/** Opens a law section in the drawer from a help tip; defined below with the drawer code. */
+let openSectionHandler = () => {};
+
+function placeTip(tip) {
+  tip.style.left = "0px";
+  const r = tip.getBoundingClientRect();
+  const margin = 8;
+  if (r.right > window.innerWidth - margin) tip.style.left = `${window.innerWidth - margin - r.right}px`;
+  else if (r.left < margin) tip.style.left = `${margin - r.left}px`;
+}
+
+function setHelp(wrap, open, pin) {
+  const btn = wrap.querySelector(".help-btn");
+  const tip = wrap.querySelector(".help-tip");
+  if (open) {
+    if (openHelp && openHelp !== wrap) setHelp(openHelp, false);
+    tip.hidden = false;
+    placeTip(tip);
+    wrap.dataset.open = "1";
+    openHelp = wrap;
+    if (pin !== undefined) wrap.dataset.pinned = pin ? "1" : "";
+  } else {
+    tip.hidden = true;
+    delete wrap.dataset.open;
+    wrap.dataset.pinned = "";
+    if (openHelp === wrap) openHelp = null;
+  }
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+/**
+ * A small circled "?" that explains one or more terms from help.json. It opens on click, on hover and
+ * on keyboard focus; Escape closes it. The tip is described to assistive technology with
+ * aria-describedby. Returns null when none of the keys is in the glossary.
+ */
+function helpButton(keys) {
+  const entries = keys.map((k) => ({ key: k, ...helpTerms[k] })).filter((e) => e.title);
+  if (!entries.length) return null;
+  const id = `help-tip-${++helpCount}`;
+  const wrap = el("span", { className: "help" });
+  const btn = el("button", {
+    className: "help-btn",
+    text: "?",
+    attrs: { type: "button", "aria-label": `What is ${entries.map((e) => e.title).join(", ")}?`, "aria-expanded": "false", "aria-describedby": id },
+  });
+  const tip = el("span", { className: "help-tip", attrs: { id, role: "tooltip" } });
+  tip.hidden = true;
+  for (const e of entries) {
+    const part = el("span", { className: "help-part" });
+    if (entries.length > 1) part.append(el("strong", { text: `${e.title}: ` }));
+    part.append(e.text);
+    tip.append(part);
+    for (const sid of e.law ?? []) {
+      const open = el("button", { className: "link-button help-law", text: "Open the section", attrs: { type: "button" } });
+      open.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        setHelp(wrap, false);
+        openSectionHandler(sid, e.term);
+      });
+      part.append(" ", open);
+    }
+  }
+  wrap.append(btn, tip);
+
+  let leaveTimer = 0;
+  btn.addEventListener("click", (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    if (wrap.dataset.pinned) setHelp(wrap, false);
+    else setHelp(wrap, true, true);
+  });
+  wrap.addEventListener("mouseenter", () => {
+    clearTimeout(leaveTimer);
+    if (!wrap.dataset.open) setHelp(wrap, true);
+  });
+  wrap.addEventListener("mouseleave", () => {
+    clearTimeout(leaveTimer);
+    leaveTimer = setTimeout(() => {
+      if (!wrap.dataset.pinned && !wrap.contains(document.activeElement)) setHelp(wrap, false);
+    }, 150);
+  });
+  wrap.addEventListener("focusin", () => {
+    if (!wrap.dataset.open) setHelp(wrap, true);
+  });
+  wrap.addEventListener("focusout", (ev) => {
+    if (!wrap.contains(ev.relatedTarget)) setHelp(wrap, false);
+  });
+  return wrap;
+}
+
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && openHelp) {
+    const btn = openHelp.querySelector(".help-btn");
+    setHelp(openHelp, false);
+    btn.focus();
+  }
+});
+document.addEventListener("click", (e) => {
+  if (openHelp && !openHelp.contains(e.target)) setHelp(openHelp, false);
+});
+
+/** Replaces each `<span data-help="key [key ...]">` in the page with its help button. */
+function attachHelpSlots(root = document) {
+  for (const slot of root.querySelectorAll("[data-help]")) {
+    const b = helpButton(slot.dataset.help.split(/\s+/));
+    if (b) slot.replaceWith(b);
+  }
+}
+
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Text with a help button after the first mention of each glossary term whose `annotate` is `scope`
+ * ("text" for claim text, "summary" for the result line). Longest phrases win; mentions don't overlap.
+ */
+function annotated(text, scope) {
+  const hits = [];
+  for (const [key, e] of Object.entries(helpTerms)) {
+    if (e.annotate !== scope) continue;
+    const phrases = [...(e.match ?? [])].sort((a, b) => b.length - a.length);
+    if (!phrases.length) continue;
+    const re = new RegExp(`(?<![A-Za-z0-9])(?:${phrases.map(escapeRe).join("|")})(?![A-Za-z0-9])`, "i");
+    const m = re.exec(text);
+    if (m) hits.push({ key, start: m.index, end: m.index + m[0].length });
+  }
+  hits.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+  const frag = document.createDocumentFragment();
+  let at = 0;
+  for (const h of hits) {
+    if (h.start < at) continue; // overlaps an earlier, longer mention
+    frag.append(text.slice(at, h.end));
+    const b = helpButton([h.key]);
+    if (b) frag.append(b);
+    at = h.end;
+  }
+  frag.append(text.slice(at));
+  return frag;
+}
+
+/* ------------------------------------------------------------------ form */
+
 function fillForm(p, question) {
   for (const key of ["business_type", "sector", "lga", "turnover_band", "fixed_assets_band"]) form.elements[key].value = p[key];
   form.elements.employees.value = String(p.employees);
@@ -65,6 +227,8 @@ function readForm() {
   return { profile, question: f.question.value.trim(), problems };
 }
 
+/* ------------------------------------------------------------------ citations */
+
 /** "Nigeria Tax Administration Act, 2025" -> "Nigeria Tax Administration Act 2025". */
 function actName(actId) {
   return (actTitles[actId] ?? actId).replace(/,\s*(\d{4})$/, " $1");
@@ -85,35 +249,69 @@ function citation(sectionIds) {
   return [...byAct].map(([act, nos]) => `${actName(act)}, ${nos.map((n) => `s. ${n}`).join(", ")}`).join("; ");
 }
 
+/* ------------------------------------------------------------------ progress */
+
 function addProgress(text, agent) {
-  const li = el("li", { className: `agent-${agent}`, text });
+  const li = el("li", { className: `agent-${agent}`, text: plain(text, STEP_FAILED) });
   progressList.append(li);
   progressList.scrollTop = progressList.scrollHeight;
 }
 
-const VERDICT_LABEL = { supported: "Supported", qualified: "Qualified", struck: "Struck", unchecked: "Not verified" };
+/* ------------------------------------------------------------------ results */
+
+const VERDICT_LABEL = {
+  supported: "Applies to you",
+  qualified: "Applies with a condition",
+  struck: "Rejected by the check",
+  unchecked: "Not verified",
+};
+
+function openLawLinks(sectionIds) {
+  const row = el("p", { className: "open-law" });
+  const mk = (id, label) => {
+    const b = el("button", { className: "link-button", text: label, attrs: { type: "button", title: citation([id]) } });
+    b.addEventListener("click", () => openSection(id));
+    return b;
+  };
+  if (sectionIds.length === 1) {
+    row.append(mk(sectionIds[0], "Open the law ›"));
+  } else {
+    row.append("Open the law: ");
+    sectionIds.forEach((id, i) => {
+      if (i) row.append(" · ");
+      row.append(mk(id, citation([id])));
+    });
+  }
+  return row;
+}
 
 function claimCard(c) {
   const v = c.verdict;
-  const card = el("details", { className: `claim v-${v}` });
-  const head = el(
-    "div",
-    { className: "claim-head" },
-    el("span", { className: `chip v-${v}`, text: VERDICT_LABEL[v] ?? v }),
-    el("span", { className: "claim-type", text: c.claim.type === "exemption" ? "Exemption" : "Obligation" }),
-    el("span", { className: "claim-toggle", attrs: { "aria-hidden": "true" } }),
-  );
-  const text = el("p", { className: "claim-text", text: c.claim.text });
-  if (v === "struck") text.prepend(el("span", { className: "visually-hidden", text: "Struck: " }));
-  card.append(el("summary", {}, head, text, el("p", { className: "citation", text: citation(c.claim.section_ids) })));
+  const card = el("article", { className: `claim v-${v}` });
 
+  // 1. the claim text, 2. the citation, 3. the way into the law
+  const text = el("p", { className: "claim-text" });
+  if (v === "struck") text.append(el("span", { className: "visually-hidden", text: "Rejected: " }));
+  text.append(annotated(c.claim.text, "text"));
+  card.append(text, el("p", { className: "citation", text: citation(c.claim.section_ids) }), openLawLinks(c.claim.section_ids));
+
+  // verdict and type, each with its explanation
+  const meta = el("div", { className: "claim-meta" });
+  const chip = el("span", { className: "chip-group" }, el("span", { className: `chip v-${v}`, text: VERDICT_LABEL[v] ?? v }), helpButton([v]));
+  const kind = c.claim.type === "exemption" ? "exemption" : "obligation";
+  const type = el("span", { className: "chip-group" }, el("span", { className: "claim-type", text: kind === "exemption" ? "Exemption" : "Obligation" }), helpButton([kind]));
+  meta.append(chip, type);
+  card.append(meta);
+
+  // the quote and the reasoning
+  const more = el("details", { className: "claim-more" }, el("summary", { text: "Show the quote and why" }));
   const body = el("div", { className: "claim-body" });
-  body.append(el("h4", { text: "Quote" }));
+  body.append(el("h4", { text: "Quote from the law" }));
   if (c.quote && c.quote_verified) body.append(el("blockquote", { text: c.quote }));
-  else body.append(el("p", { className: "unverified", text: c.quote ? "The Critic's quote could not be found in the cited text." : "No quote: the cited text does not establish this claim." }));
+  else body.append(el("p", { className: "unverified", text: c.quote ? "The quote could not be found in the cited text." : "No quote: the cited text does not establish this claim." }));
 
-  body.append(el("h4", { text: "Critic's reason" }), el("p", { className: "reason", text: c.reason }));
-  if (c.qualifier) body.append(el("h4", { text: "Qualifier" }), el("p", { className: "qualifier", text: c.qualifier }));
+  body.append(el("h4", { text: "Why" }), el("p", { className: "reason", text: c.reason }));
+  if (c.qualifier) body.append(el("h4", { text: "Condition" }), el("p", { className: "qualifier", text: c.qualifier }));
 
   const defs = c.definitions ?? [];
   if (defs.length) {
@@ -121,23 +319,19 @@ function claimCard(c) {
     for (const d of defs) byId.set(d.section_id, [...(byId.get(d.section_id) ?? []), d.term]);
     const ul = el("ul", { className: "plain-list compact" });
     for (const [id, terms] of byId) ul.append(el("li", { text: `${citation([id])}: ${terms.map((t) => `“${t}”`).join(", ")}` }));
-    body.append(el("h4", { text: "Definitions used" }), ul);
+    body.append(el("h4", { text: "Terms the law defines" }), ul);
   }
-
-  const links = el("ul", { className: "section-links" });
-  for (const id of c.claim.section_ids) {
-    const b = el("button", { className: "link-button", text: `Read ${citation([id])} in full`, attrs: { type: "button" } });
-    b.addEventListener("click", () => openSection(id));
-    links.append(el("li", {}, b));
-  }
-  body.append(el("h4", { text: "Full text" }), links);
-  card.append(body);
+  more.append(body);
+  card.append(more);
   return card;
 }
 
+/** Housekeeping notes the agent writes about its own filtering: shown under Show working, not as advice. */
+const AGENT_NOTE = /^(?:Removed \d+ note|Dropped (?:section_ids|claims)|Cited but not read|Coverage revision|Used the draft|Kept the draft|Model reply could not be parsed|Stopped after)/;
+
 function fillList(listId, blockId, items) {
   const list = $(listId);
-  list.replaceChildren(...items.map((t) => el("li", { text: t })));
+  list.replaceChildren(...items.map((t) => el("li", { text: plain(t, STEP_FAILED) })));
   $(blockId).hidden = items.length === 0;
 }
 
@@ -153,14 +347,22 @@ function renderResult(r) {
   const plural = (k, one, many) => `${k} ${k === 1 ? one : many}`;
   const summary = $("summary");
   summary.replaceChildren(
-    `${plural(n.obligations, "obligation", "obligations")}, ${plural(n.exemptions, "exemption", "exemptions")}, ${n.struck} struck, ${n.unchecked} could not be verified`,
+    annotated(
+      `${plural(n.obligations, "obligation", "obligations")}, ${plural(n.exemptions, "exemption", "exemptions")}, ${n.struck} struck, ${n.unchecked} could not be verified`,
+      "summary",
+    ),
   );
   if (r.mode === "sample") summary.append(el("span", { className: "badge", text: "Sample run", attrs: { title: `Replay of the recorded run “${r.sample}”` } }));
 
   $("claims").replaceChildren(...claims.map(claimCard));
   fillList("unanswered", "unanswered-block", r.draft?.unanswered ?? []);
-  fillList("notes", "notes-block", r.draft?.notes ?? []);
+  const notes = r.draft?.notes ?? [];
+  fillList("notes", "notes-block", notes.filter((n) => !AGENT_NOTE.test(n) && !INTERNAL.test(n)));
+  const agentNotes = notes.filter((n) => AGENT_NOTE.test(n) || INTERNAL.test(n));
+  $("agent-notes").replaceChildren(...agentNotes.map((t) => el("li", { text: t })));
+  $("agent-notes-block").hidden = agentNotes.length === 0;
 
+  // Show working stays technical
   $("queries").replaceChildren(
     ...(r.queries ?? []).map((q) =>
       el("li", {}, `${q.row_count} ${q.row_count === 1 ? "row" : "rows"}${q.error ? ` (rejected: ${q.error})` : ""}`, el("code", { className: "sql", text: q.sql })),
@@ -262,9 +464,9 @@ async function startRun(event) {
     finish();
     $("summary").scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  source.addEventListener("failed", (e) => {
+  source.addEventListener("failed", () => {
     done = true;
-    addProgress(JSON.parse(e.data).text, "system");
+    addProgress(RUN_FAILED, "system");
     finish();
   });
   source.onerror = async () => {
@@ -282,12 +484,28 @@ async function startRun(event) {
   };
 }
 
+/* ------------------------------------------------------------------ drawer */
+
 /** Splits statute text into paragraphs at its subsection markers "(1)", "(2)", ... */
 function paragraphs(text) {
   return text.split(/\s(?=\(\d+\)\s)/).map((p) => el("p", { text: p }));
 }
 
-async function openSection(id) {
+/** Wraps the first quoted occurrence of `term` in a <mark> and scrolls to it. */
+function highlightTerm(container, term) {
+  const re = new RegExp(`["“]${escapeRe(term)}["”]`, "i");
+  for (const p of container.querySelectorAll("p")) {
+    const m = re.exec(p.textContent);
+    if (!m) continue;
+    const full = p.textContent;
+    const mark = el("mark", { text: m[0] });
+    p.replaceChildren(full.slice(0, m.index), mark, full.slice(m.index + m[0].length));
+    mark.scrollIntoView({ block: "center" });
+    return;
+  }
+}
+
+async function openSection(id, term) {
   const drawer = $("drawer");
   $("drawer-title").textContent = citation([id]);
   $("drawer-meta").textContent = "Loading…";
@@ -299,21 +517,36 @@ async function openSection(id) {
     const s = await res.json();
     $("drawer-meta").textContent = [s.heading, s.chapter, s.part].filter(Boolean).join(" · ");
     $("drawer-text").replaceChildren(...paragraphs(s.text));
+    if (term) highlightTerm($("drawer-text"), term);
   } catch (err) {
     $("drawer-meta").textContent = `Could not load ${id}: ${err.message}`;
   }
 }
+openSectionHandler = openSection;
 
 $("drawer-close").addEventListener("click", () => $("drawer").close());
 $("drawer").addEventListener("click", (e) => {
   if (e.target === $("drawer")) $("drawer").close(); // click on the backdrop
 });
 
+/* ------------------------------------------------------------------ start */
+
 form.addEventListener("submit", startRun);
 fillForm(AMAKA, DEFAULT_QUESTION);
+
 fetch("/api/acts")
   .then((r) => r.json())
   .then((acts) => {
     actTitles = Object.fromEntries(acts.map((a) => [a.act_id, a.act_title]));
   })
   .catch(() => {});
+
+fetch("help.json")
+  .then((r) => r.json())
+  .then((h) => {
+    helpTerms = h.terms ?? {};
+    attachHelpSlots();
+  })
+  .catch(() => {
+    // without the glossary the page works the same, minus the "?" buttons
+  });
