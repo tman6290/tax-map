@@ -27,7 +27,7 @@ for (const [name, body] of Object.entries(variants)) {
           { role: "user", content: user },
         ],
         app: "taxmap-critic",
-        model: process.env.METERLESS_CRITIC_MODEL || "nvidia/nemotron-3.5-super-vl-120b-a12b",
+        model: process.env.METERLESS_CRITIC_MODEL || "nvidia/nemotron-3-ultra-550b-a55b",
       },
       { retries: 0, timeoutMs: 180_000 },
     );

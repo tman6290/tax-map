@@ -4,21 +4,23 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { WorldModel } from "../engines/types.js";
 import { chatWithFallback, type ChatMessage, type Receipt } from "../providers/index.js";
-import type { CheckedClaim, Claim, CritiqueResult, Draft, Profile, SectionRead, TraceStep, Verdict } from "./types.js";
+import { corpus, isGlossarySection, matchDefinitions, type CorpusSection, type GlossaryEntry } from "./glossary.js";
+import { PROFILE_HEADER } from "./profile.js";
+import type { CheckedClaim, Claim, ClaimType, CritiqueResult, Draft, Profile, SectionRead, TraceStep, Verdict } from "./types.js";
 
 export const CRITIC_APP = "taxmap-critic";
-const DEFAULT_CRITIC_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
+const DEFAULT_CRITIC_MODEL = "nvidia/nemotron-3-ultra-550b-a55b";
 const QUOTE_NOT_FOUND = "quote not found in cited text: ";
-const DEFINITIONS_CHARS = 2_000;
+const NOT_ESTABLISHED = "text does not establish the claim";
+/** Critic calls get longer than the 60 s default: Nightshift 1.2.3 allows up to 120 s to first token on cloud lanes. */
+const CRITIC_TIMEOUT_MS = 150_000;
+/** Piece size when a call fails with HTTP 502: a 1,944-character section that failed whole passed in 800-character pieces. */
+const FALLBACK_PIECE_CHARS = 800;
 
-/**
- * Longest piece of operative text per Critic call. Nightshift answered HTTP 502 on long inputs
- * (a full 1,944-character NTAA-2025-s22 failed on every attempt; its first 600 characters passed),
- * so cited text is split at subsection boundaries and packed into pieces of at most this size.
- */
+/** Longest piece of operative text per Critic call; a normal section is judged whole. */
 export function pieceChars(): number {
   const n = Number(process.env.CRITIC_PIECE_CHARS);
-  return Number.isInteger(n) && n >= 200 ? n : 800; // 2,500 left s22 in one piece, which still failed; 800 passed
+  return Number.isInteger(n) && n >= 200 ? n : 6_000;
 }
 
 let promptCache: string | undefined;
@@ -44,7 +46,12 @@ const VerdictSchema = z.object({
   reason: z.string().min(1),
   quote: optionalText,
   qualifier: optionalText,
-  struck_because: z.enum(["disapplies", "contradicts", "silent"]).nullable().optional(),
+  // "silent" is accepted from older replies and treated as not_established
+  struck_because: z
+    .enum(["disapplies", "contradicts", "not_established", "silent"])
+    .nullable()
+    .optional()
+    .transform((v) => (v === "silent" ? "not_established" : (v ?? null))),
 });
 type ModelVerdict = z.infer<typeof VerdictSchema>;
 
@@ -70,27 +77,51 @@ export function parseVerdict(content: string | null): VerdictParse {
   return { ok: true, value: parsed.data };
 }
 
-/** Whitespace, dash and quote-mark folding used for the grounding check. */
+/**
+ * Folding used for the grounding check: dashes and whitespace normalised, and double quotation marks
+ * dropped, because definitions put them round every term ("small business" means ...) and models
+ * copying a definition routinely leave them out. Every other character must still match.
+ */
 export function normaliseForQuote(s: string): string {
   return s
     .replace(/[‐-―−]/g, "-")
     .replace(/[‘’‛′]/g, "'")
-    .replace(/[“”‟″]/g, '"')
+    .replace(/["“”‟″]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-/** True when the quote (minus any leading/trailing ellipsis or quote marks) occurs in one of the texts. */
+const FRAGMENT_SEPARATOR = " … ";
+const MIN_FRAGMENT_CHARS = 20;
+const MAX_FRAGMENTS = 4;
+
+/**
+ * True when the quote is grounded in one of the texts: either one contiguous excerpt (ignoring a
+ * leading or trailing ellipsis), or 2-4 fragments joined by " … " that are each at least 20 characters,
+ * verbatim, all in the same text, and in document order. Anything else fails.
+ */
 export function quoteInTexts(quote: string | null, texts: string[]): boolean {
   if (!quote) return false;
   const q = normaliseForQuote(quote)
     .replace(/^["'\s]*(?:\.\.\.|…)?\s*/, "")
     .replace(/\s*(?:\.\.\.|…)?["'\s]*$/, "");
-  if (q.length < 8) return false; // too short to ground anything
-  return texts.some((t) => normaliseForQuote(t).includes(q));
+  const normalised = texts.map(normaliseForQuote);
+  if (!q.includes(FRAGMENT_SEPARATOR)) {
+    if (q.length < 8) return false; // too short to ground anything
+    return normalised.some((t) => t.includes(q));
+  }
+  const fragments = q.split(FRAGMENT_SEPARATOR).map((f) => f.trim());
+  if (fragments.length > MAX_FRAGMENTS || fragments.some((f) => f.length < MIN_FRAGMENT_CHARS)) return false;
+  return normalised.some((t) => {
+    let from = 0;
+    for (const f of fragments) {
+      const at = t.indexOf(f, from);
+      if (at < 0) return false;
+      from = at + f.length;
+    }
+    return true;
+  });
 }
-
-const isDefinitions = (s: SectionRead) => /interpret|definition|meaning of/i.test(s.heading);
 
 /**
  * Splits section text before each subsection marker "(1)", "(2)", ... in sequence, so cross-references
@@ -140,47 +171,39 @@ export function packPieces(subs: string[], max: number): string[] {
   return out;
 }
 
-/** The entries of an interpretation section whose defined term occurs in the claim or piece, else its start. */
-export function relevantDefinitions(text: string, against: string): string {
-  const entries = text.split(/(?=["“][^"”]{2,60}["”]\s+(?:means|includes|has the (?:same )?meaning|refers to))/);
-  const lower = against.toLowerCase();
-  const hits = entries.filter((e) => {
-    const term = /^["“]([^"”]+)["”]/.exec(e)?.[1]?.toLowerCase();
-    return term !== undefined && lower.includes(term);
-  });
-  const chosen = (hits.length ? hits.join(" ") : text).trim();
-  return chosen.length > DEFINITIONS_CHARS ? `${chosen.slice(0, DEFINITIONS_CHARS)} [truncated]` : chosen;
-}
-
 interface Piece {
   section_id: string;
   heading: string;
   text: string;
-  index: number;
-  total: number;
+  label: string;
+  /** "piece i of n" when the section is split, else "" */
+  position: string;
 }
 
-function piecesFor(cited: Array<{ id: string; section: SectionRead }>, max: number): Piece[] {
-  const out: Piece[] = [];
-  for (const { id, section } of cited) {
-    const parts = packPieces(splitSubsections(section.text), max);
-    parts.forEach((text, i) => out.push({ section_id: id, heading: section.heading, text, index: i + 1, total: parts.length }));
-  }
-  return out;
+function piecesOf(id: string, heading: string, text: string, max: number, labelPrefix = id): Piece[] {
+  const parts = packPieces(splitSubsections(text), max);
+  return parts.map((t, i) => ({
+    section_id: id,
+    heading,
+    text: t,
+    label: parts.length > 1 ? `${labelPrefix} ${i + 1}/${parts.length}` : labelPrefix,
+    position: parts.length > 1 ? `piece ${i + 1} of ${parts.length}` : "",
+  }));
 }
 
-function userMessage(profile: Profile, claim: Claim, defs: Array<{ id: string; heading: string; text: string }>, piece: Piece): string {
+function userMessage(profile: Profile, claim: Claim, defs: GlossaryEntry[], piece: Piece): string {
   const parts = [
-    "Business profile (turnover bands are annual turnover in naira):",
+    PROFILE_HEADER,
     JSON.stringify(profile, null, 2),
     "",
+    `Claim type: ${claim.type ?? "obligation"} (${claim.type === "exemption" ? "the claim says a rule does NOT apply to this business" : "the claim says a rule applies to this business"})`,
     `Claim: ${claim.text}`,
   ];
   if (defs.length) {
-    parts.push("", "Definitions (cited for the terms the claim depends on):");
-    for (const d of defs) parts.push("", `--- ${d.id}${d.heading ? `: ${d.heading}` : ""}`, d.text);
+    parts.push("", "Definitions (authoritative for the terms they define):");
+    for (const d of defs) parts.push("", `--- ${d.section_id} "${d.term}"`, d.definition);
   }
-  const of = piece.total > 1 ? ` (piece ${piece.index} of ${piece.total}; other pieces are judged separately)` : "";
+  const of = piece.position ? ` (${piece.position}; other pieces are judged separately)` : "";
   parts.push("", "Operative text:", "", `--- ${piece.section_id}${piece.heading ? `: ${piece.heading}` : ""}${of}`, piece.text);
   return parts.join("\n");
 }
@@ -190,28 +213,40 @@ const now = () => new Date().toISOString();
 export interface PieceResult {
   label: string;
   verdict: Verdict;
-  struck_because: "disapplies" | "contradicts" | "silent" | null;
+  struck_because: "disapplies" | "contradicts" | "not_established" | null;
   reason: string;
   quote: string | null;
   quote_verified: boolean;
   qualifier: string | null;
   receipt: Receipt | null;
+  /** set when the call failed with HTTP 502, so the piece can be judged again in smaller pieces */
+  status502?: boolean;
 }
 
 const DECISIVE_REASON = /disappl|does not apply|shall not apply|not appl(?:y|icable) to|exempt|contradict|inconsistent|exclud/i;
+const DISAPPLYING_QUOTE = /shall not apply|does not apply|not applicable|is exempt|are exempt|exempt(?:ed)? from|shall not be (?:liable|required|chargeable)/i;
 
-/** True for a struck piece whose text removes or contradicts the claim, rather than being silent on it. */
-function decisive(p: PieceResult): boolean {
+/**
+ * A strike that removes or contradicts the claim, rather than one where the text simply does not
+ * establish it. The no-silent rule: a struck piece whose verified quote is itself a disapplying
+ * sentence counts as decisive whatever label the model gave it.
+ */
+function decisive(p: PieceResult, type: ClaimType): boolean {
   if (p.verdict !== "struck") return false;
-  if (p.struck_because) return p.struck_because !== "silent";
-  return DECISIVE_REASON.test(p.reason);
+  if (p.struck_because === "disapplies" || p.struck_because === "contradicts") return true;
+  // for an exemption claim a disapplying sentence is the evidence for the claim, not against it
+  if (type === "obligation" && p.quote_verified && p.quote && DISAPPLYING_QUOTE.test(p.quote)) return true;
+  return p.struck_because === null && DECISIVE_REASON.test(p.reason);
 }
 
 /**
  * Merges per-piece verdicts: a decisive strike wins, then any qualified piece, then (if some piece
  * could not be checked) unchecked, then a supported piece with a verified quote; otherwise struck.
  */
-export function mergePieces(pieces: PieceResult[]): Omit<CheckedClaim, "claim"> {
+export function mergePieces(
+  pieces: PieceResult[],
+  type: ClaimType = "obligation",
+): Omit<CheckedClaim, "claim" | "definitions_used"> {
   const pick = (p: PieceResult, verdict: Verdict = p.verdict) => ({
     verdict,
     reason: pieces.length > 1 ? `[${p.label}] ${p.reason}` : p.reason,
@@ -220,8 +255,8 @@ export function mergePieces(pieces: PieceResult[]): Omit<CheckedClaim, "claim"> 
     qualifier: verdict === "qualified" ? p.qualifier : null,
     receipt: p.receipt,
   });
-  const strike = pieces.find(decisive);
-  if (strike) return pick(strike);
+  const strike = pieces.find((p) => decisive(p, type));
+  if (strike) return pick(strike, "struck");
   const qualified = pieces.find((p) => p.verdict === "qualified");
   if (qualified) return pick(qualified);
   const failed = pieces.filter((p) => p.verdict === "unchecked");
@@ -249,9 +284,25 @@ export function mergePieces(pieces: PieceResult[]): Omit<CheckedClaim, "claim"> 
   };
 }
 
+/** A cited section with its chapter and part, preferring the text the Researcher read. */
+function sectionContext(id: string, read: SectionRead | undefined): CorpusSection | undefined {
+  const c = corpus().get(id);
+  if (!read) return c;
+  return {
+    section_id: id,
+    act_id: read.act_id,
+    section_no: read.section_no,
+    heading: read.heading,
+    text: read.text,
+    chapter: c?.chapter ?? null,
+    part: c?.part ?? null,
+  };
+}
+
 /**
- * Judge every drafted claim against the verbatim text of the sections it cites: one model call per
- * piece of cited text (plus at most one correction each). The Critic never adds claims.
+ * Judge every drafted claim against the verbatim text of the sections it cites, with the glossary
+ * definitions of the terms involved shown first. One model call per section (or per piece of a very
+ * long section, or after an HTTP 502), plus at most one correction each. The Critic never adds claims.
  */
 export async function critique(
   draft: Draft,
@@ -270,7 +321,14 @@ export async function critique(
       .filter((c): c is { id: string; section: SectionRead } => c.section !== undefined);
     const missing = claim.section_ids.filter((id) => sectionsRead[id] === undefined);
 
-    let result: Omit<CheckedClaim, "claim">;
+    // cited interpretation sections are context; a claim citing nothing else is judged on them
+    const nonGlossary = cited.filter((c) => !isGlossarySection(c.id));
+    const operative = nonGlossary.length ? nonGlossary : cited;
+    const contexts = cited.map((c) => sectionContext(c.id, c.section)).filter((c): c is CorpusSection => c !== undefined);
+    const defs = cited.length ? matchDefinitions(claim.text, contexts) : [];
+    const definitionsUsed = [...new Set(defs.map((d) => d.section_id))];
+
+    let result: Omit<CheckedClaim, "claim" | "definitions_used">;
     if (cited.length === 0) {
       // nothing to judge against; cannot happen for drafts from research(), which cites only sections read
       result = {
@@ -282,26 +340,25 @@ export async function critique(
         receipt: null,
       };
     } else {
-      // definition sections are context shown with every piece; a claim citing only definitions is judged on them
-      const defSections = cited.filter((c) => isDefinitions(c.section));
-      const operative = defSections.length < cited.length ? cited.filter((c) => !isDefinitions(c.section)) : cited;
-      const defs = operative === cited ? [] : defSections;
-      const pieces = piecesFor(operative, pieceChars());
       const results: PieceResult[] = [];
-      for (const piece of pieces) {
-        const shownDefs = defs.map((d) => ({
-          id: d.id,
-          heading: d.section.heading,
-          text: relevantDefinitions(d.section.text, `${claim.text} ${piece.text}`),
-        }));
-        results.push(await judgePiece(claim, piece, shownDefs, profile, model, receipts, trace));
+      for (const { id, section } of operative) {
+        for (const piece of piecesOf(id, section.heading, section.text, pieceChars())) {
+          const r = await judgePiece(claim, piece, defs, profile, model, receipts, trace);
+          const smaller = r.status502 ? piecesOf(id, section.heading, piece.text, FALLBACK_PIECE_CHARS, piece.label) : [];
+          if (smaller.length > 1) {
+            // fallback: Nightshift answered 502 on this input, so judge it again in smaller pieces
+            for (const p of smaller) results.push(await judgePiece(claim, p, defs, profile, model, receipts, trace));
+          } else {
+            results.push(r);
+          }
+        }
       }
-      result = mergePieces(results);
+      result = mergePieces(results, claim.type ?? "obligation");
     }
-    checked.push({ claim, ...result });
+    checked.push({ claim, ...result, definitions_used: definitionsUsed });
 
-    for (const id of claim.section_ids) {
-      const s = sectionsRead[id];
+    for (const id of [...new Set([...claim.section_ids, ...definitionsUsed])]) {
+      const s = sectionContext(id, sectionsRead[id]);
       await world.addFact({
         section_id: id,
         act_id: s?.act_id ?? id.replace(/-s\d+$/, ""),
@@ -323,13 +380,13 @@ export async function critique(
 async function judgePiece(
   claim: Claim,
   piece: Piece,
-  defs: Array<{ id: string; heading: string; text: string }>,
+  defs: GlossaryEntry[],
   profile: Profile,
   model: string,
   receipts: Receipt[],
   trace: TraceStep[],
 ): Promise<PieceResult> {
-  const label = piece.total > 1 ? `${piece.section_id} ${piece.index}/${piece.total}` : piece.section_id;
+  const label = piece.label;
   const base = { label, struck_because: null, quote: null, quote_verified: false, qualifier: null };
   const messages: ChatMessage[] = [
     { role: "system", content: criticSystemPrompt() },
@@ -340,12 +397,12 @@ async function judgePiece(
   for (let attempt = 1; attempt <= 2; attempt++) {
     let res: Awaited<ReturnType<typeof chatWithFallback>>;
     try {
-      res = await chatWithFallback({ messages, app: CRITIC_APP, model, temperature: 0 });
+      res = await chatWithFallback({ messages, app: CRITIC_APP, model, temperature: 0 }, { timeoutMs: CRITIC_TIMEOUT_MS });
     } catch (err) {
       // chat has already retried: this piece could not be verified, which is not a rejection
       const msg = err instanceof Error ? err.message : String(err);
       trace.push({ kind: "model_turn", ts: now(), detail: { claim_id: claim.id, piece: label, attempt, verdict: "unchecked", error: msg } });
-      return { ...base, verdict: "unchecked", reason: `critic call failed: ${msg}`, receipt };
+      return { ...base, verdict: "unchecked", reason: `critic call failed: ${msg}`, receipt, status502: /HTTP 502/.test(msg) };
     }
     receipt = res.receipt;
     receipts.push(res.receipt);
@@ -355,7 +412,7 @@ async function judgePiece(
       trace.push({
         kind: "model_turn",
         ts: now(),
-        detail: { claim_id: claim.id, piece: label, attempt, verdict: "unparseable", content: (res.message.content ?? "").slice(0, 300) },
+        detail: { claim_id: claim.id, piece: label, attempt, verdict: "unparseable", content: (res.message.content ?? "").slice(-300) },
         receipt: res.receipt,
       });
       messages.push(
@@ -369,7 +426,7 @@ async function judgePiece(
     }
 
     const v = parsed.value;
-    const verified = quoteInTexts(v.quote, [piece.text, ...defs.map((d) => d.text)]);
+    const verified = quoteInTexts(v.quote, [piece.text, ...defs.map((d) => d.definition)]);
     let out: PieceResult = {
       label,
       verdict: v.verdict,
@@ -381,7 +438,9 @@ async function judgePiece(
       receipt,
     };
     if ((out.verdict === "supported" || out.verdict === "qualified") && !verified) {
-      out = { ...out, verdict: "struck", struck_because: "silent", qualifier: null, reason: `${QUOTE_NOT_FOUND}${v.reason}` };
+      out = { ...out, verdict: "struck", struck_because: "not_established", qualifier: null, reason: `${QUOTE_NOT_FOUND}${v.reason}` };
+    } else if (out.struck_because === "not_established" && !out.reason.startsWith(NOT_ESTABLISHED)) {
+      out = { ...out, reason: `${NOT_ESTABLISHED}: ${out.reason}` };
     }
     trace.push({
       kind: "model_turn",
@@ -393,11 +452,12 @@ async function judgePiece(
         verdict: out.verdict,
         struck_because: out.struck_because,
         quote_verified: out.quote_verified,
-        content: (res.message.content ?? "").slice(0, 300),
+        definitions: defs.map((d) => `${d.section_id}:${d.term}`),
+        content: (res.message.content ?? "").slice(-300),
       },
       receipt: res.receipt,
     });
     return out;
   }
-  return { ...base, verdict: "struck", struck_because: "silent", reason: "critic output unparseable", receipt };
+  return { ...base, verdict: "struck", struck_because: "not_established", reason: "critic output unparseable", receipt };
 }

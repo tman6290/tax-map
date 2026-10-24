@@ -60,7 +60,8 @@ export interface ChatRuntimeOptions {
   backoffMs?: number;
 }
 
-const DEFAULT_TIMEOUT_MS = 60_000;
+// drafting turns on Lightning take 40-60 s and Critic calls up to the 120 s first-token limit
+const DEFAULT_TIMEOUT_MS = 150_000;
 const DEFAULT_RETRIES = 2;
 const DEFAULT_BACKOFF_MS = 500;
 const DEFAULT_LOG_FILE = "logs/model_calls.jsonl";
@@ -99,7 +100,7 @@ function parseReceipt(body: Record<string, unknown>, requestedModel: string): Re
 
 /**
  * One chat completion through the Nightshift gateway (plain fetch, so the extra `meterless`
- * receipt field survives). 60 s timeout per attempt, up to 2 retries with backoff on network
+ * receipt field survives). 150 s timeout per attempt by default, up to 2 retries with backoff on network
  * errors and 5xx, none on 4xx. Errors never contain the runtime token.
  */
 export async function chat(opts: ChatOptions, runtime: ChatRuntimeOptions = {}): Promise<ChatResult> {
@@ -122,9 +123,19 @@ export async function chat(opts: ChatOptions, runtime: ChatRuntimeOptions = {}):
     ...(opts.extra_body ?? {}),
   };
 
+  // METERLESS_DEBUG=1 logs each request's shape and outcome to stderr: sizes only, never content or the token
+  const debug = (msg: string) => {
+    if (process.env.METERLESS_DEBUG === "1") console.error(`[meterless ${app}] ${msg}`);
+  };
+  debug(
+    `request: ${opts.messages.length} messages (${opts.messages.map((m) => `${m.role}:${(m.content ?? "").length}${m.tool_calls ? "+calls" : ""}`).join(" ")}), ` +
+      `tools ${opts.tools ? "on" : "off"}, max_tokens ${opts.max_tokens ?? "-"}, body ${JSON.stringify(body).length} chars`,
+  );
+
   let lastError: Error | undefined;
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
+    const started = Date.now();
     let res: Response;
     try {
       res = await fetch(`${base}/chat/completions`, {
@@ -148,8 +159,10 @@ export async function chat(opts: ChatOptions, runtime: ChatRuntimeOptions = {}):
       continue;
     }
 
+    debug(`attempt ${attempt + 1}: HTTP ${res.status} after ${Date.now() - started} ms`);
     if (res.status >= 500) {
-      lastError = new Error(`Meterless server error: HTTP ${res.status}`);
+      const detail = redact((await res.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 300), token);
+      lastError = new Error(`Meterless server error: HTTP ${res.status}${detail ? ` ${detail}` : ""}`);
       continue;
     }
     if (!res.ok) {

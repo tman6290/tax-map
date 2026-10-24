@@ -4,11 +4,19 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import { runSql } from "../data/zetaris.js";
 import type { RunMemory, ScoredMemoryEntry } from "../engines/types.js";
-import { chat, type ChatMessage, type Receipt, type ToolCall, type ToolDefinition } from "../providers/meterless.js";
+import { chat, type ChatMessage, type ChatResult, type Receipt, type ToolCall, type ToolDefinition } from "../providers/meterless.js";
+import { areaParts, checklistAreas, describeParts, uncoveredAreas, type ChecklistArea } from "./checklist.js";
+import { PROFILE_HEADER } from "./profile.js";
 import { findPart, formatToc, tocEntries } from "./toc.js";
-import type { Draft, Profile, ResearchResult, SectionRead, TraceStep } from "./types.js";
+import type { ClaimType, Draft, Profile, ResearchResult, SectionRead, TraceStep } from "./types.js";
 
-export const MAX_TURNS = 8;
+export const MAX_TURNS = 12;
+/** Drafting turns on Lightning take 40-60 s; a 60 s limit made the pipeline fail on them. */
+const RESEARCHER_TIMEOUT_MS = 150_000;
+const DRAFT_MAX_TOKENS = 4_000;
+const DRAFT_RETRY_MAX_TOKENS = 8_000; // second try when the 4,000 cap leaves the model no room to answer
+/** At most this many targeted turns for uncovered checklist areas, before the revision turn. */
+export const MAX_COVERAGE_TURNS = 4;
 const SQL_ROW_LIMIT = 40;
 const SNIPPET_CHARS = 500;
 const MAX_GET_SECTIONS = 10;
@@ -225,17 +233,28 @@ async function execTool(call: ToolCall): Promise<ToolOutcome> {
   return toolError(tool, `Unknown tool '${tool}'. Use browse_part, run_sql or get_sections.`);
 }
 
-const ClaimSchema = z.object({
-  id: z.string().min(1),
-  text: z.string().min(1),
-  section_ids: z.array(z.string()),
-  tier: z.enum(["federal", "state", "lga"]),
-  agency: z
-    .string()
-    .nullable()
-    .optional()
-    .transform((v) => v ?? null),
-});
+const EXEMPTION_WORDING = /\b(?:exempt|not (?:required|liable|obliged|chargeable)|does not apply|shall not apply|need not|is not subject)\b/i;
+
+/** The claim type the model gave, or (if it left it out) inferred from the wording. */
+export function claimType(given: string | undefined, text: string): ClaimType {
+  if (given === "obligation" || given === "exemption") return given;
+  return EXEMPTION_WORDING.test(text) ? "exemption" : "obligation";
+}
+
+const ClaimSchema = z
+  .object({
+    id: z.string().min(1),
+    type: z.enum(["obligation", "exemption"]).optional(),
+    text: z.string().min(1),
+    section_ids: z.array(z.string()),
+    tier: z.enum(["federal", "state", "lga"]),
+    agency: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((v) => v ?? null),
+  })
+  .transform((c) => ({ ...c, type: claimType(c.type, c.text) }));
 const DraftSchema = z.object({
   claims: z.array(ClaimSchema),
   notes: z.array(z.string()).default([]),
@@ -314,7 +333,7 @@ function alreadyFound(entries: ScoredMemoryEntry[], st: RunState, turn: number, 
 
 function taskMessage(profile: Profile, question: string): string {
   return [
-    "Business profile (turnover bands are annual turnover in naira):",
+    PROFILE_HEADER,
     JSON.stringify(profile, null, 2),
     "",
     `Question: ${question}`,
@@ -373,6 +392,58 @@ function rangeRead(note: string, at: number, lo: number, hi: number, fetched: Se
   });
 }
 
+/**
+ * Revision turns (coverage revision and read-before-cite revision) show at most this many sections,
+ * this long each: with up to 24 sections at 3,000 characters, Lightning returned empty responses
+ * (HTTP 502) even at an 8,000-token cap.
+ */
+export const REVISION_MAX_SECTIONS = 8;
+export const REVISION_TEXT_CHARS = 1_500;
+
+/** The highest-scoring rows (ties keep fetch order), at most REVISION_MAX_SECTIONS, text cut to REVISION_TEXT_CHARS. */
+export function revisionTexts(rows: Row[], score: (r: Row) => number): Row[] {
+  return rows
+    .map((r, i) => ({ r, i, s: score(r) }))
+    .sort((a, b) => b.s - a.s || a.i - b.i)
+    .slice(0, REVISION_MAX_SECTIONS)
+    .map(({ r }) => {
+      const text = String(r.text ?? "");
+      return { ...r, text: text.length > REVISION_TEXT_CHARS ? `${text.slice(0, REVISION_TEXT_CHARS)} [truncated]` : text };
+    });
+}
+
+/** Relevance to the uncovered areas: matches of each area's wording, counted five times in the heading. */
+export function areaScore(areas: ChecklistArea[]): (r: Row) => number {
+  return (r) =>
+    areas.reduce((n, a) => {
+      const re = new RegExp(a.wording.source, "gi");
+      return n + 5 * (String(r.heading ?? "").match(re)?.length ?? 0) + (String(r.text ?? "").match(re)?.length ?? 0);
+    }, 0);
+}
+
+const ABSENCE_RE = /not found|not loaded|no sections|does not define|is present|not covered|not present|no definition|not defined/i;
+const NOTE_STOPWORDS = new Set(["about", "after", "these", "their", "there", "which", "would", "could", "under", "loaded", "found", "sections", "section"]);
+const significantWords = (s: string) =>
+  new Set((s.toLowerCase().match(/[a-z]{5,}/g) ?? []).filter((w) => !NOTE_STOPWORDS.has(w)));
+
+/**
+ * Drops model notes that assert an absence ("not found", "not loaded", "no sections", "does not define")
+ * unless an unanswered entry covers the same point: both fall under the same checklist area, or they
+ * share at least two significant words.
+ */
+export function filterAbsenceNotes(notes: string[], unanswered: string[], profile: Profile): string[] {
+  const areas = checklistAreas(profile);
+  return notes.filter((n) => {
+    if (!ABSENCE_RE.test(n)) return true;
+    const words = significantWords(n);
+    return unanswered.some(
+      (u) =>
+        areas.some((a) => a.wording.test(n) && a.wording.test(u)) ||
+        [...significantWords(u)].filter((w) => words.has(w)).length >= 2,
+    );
+  });
+}
+
 /** Replaces any note that names a section_id, or a range of sections, the run did not read in full. */
 export function filterNotes(notes: string[], fetched: Set<string>): string[] {
   return notes.map((n) => {
@@ -390,16 +461,23 @@ export function filterNotes(notes: string[], fetched: Set<string>): string[] {
 
 const now = () => new Date().toISOString();
 
-/** Longest section text sent in a verification message; a few NTA sections exceed 20,000 characters. */
-const VERIFY_TEXT_CHARS = 6_000;
-
 /**
  * Research which statute sections create obligations for the business and draft cited claims.
  * Every citation in the returned draft was read in full with get_sections during this run: when the
  * model drafts from search snippets, the agent fetches the cited sections itself and gives the model
  * one turn to revise the draft against the full text.
  */
-export async function research(profile: Profile, question: string, memory: RunMemory): Promise<ResearchResult> {
+export interface ResearchOptions {
+  /** Targeted turns for uncovered checklist areas (default true). */
+  coverage?: boolean;
+}
+
+export async function research(
+  profile: Profile,
+  question: string,
+  memory: RunMemory,
+  options: ResearchOptions = {},
+): Promise<ResearchResult> {
   const trace: TraceStep[] = [];
   const receipts: Receipt[] = [];
   const st: RunState = { seen: new Set(), fetched: new Set(), queries: [], excerpts: new Map() };
@@ -416,6 +494,8 @@ export async function research(profile: Profile, question: string, memory: RunMe
   const toolResults = new Map<string, string>(); // repeat key -> tool result content
   let repeats = 0;
   let finalEarly = false; // set after MAX_REPEATS repeated calls
+  let coverageDone = options.coverage === false;
+  const targetedAreas: string[] = []; // checklist keys that got a targeted turn
 
   /**
    * The repeat key of a run_sql (canonicalSql) or get_sections (the id set, order-insensitive) call,
@@ -498,6 +578,148 @@ export async function research(profile: Profile, question: string, memory: RunMe
     return out;
   }
 
+  /**
+   * A tool-free drafting or revision call. It first tries max_tokens DRAFT_MAX_TOKENS with no retry; if
+   * that fails, it tries once more at DRAFT_RETRY_MAX_TOKENS. Lightning reasons before it answers, and a
+   * 4,000-token cap can run out mid-reasoning: Nightshift then answers HTTP 502 with
+   * "<model>_empty_response", which an identical retry would only repeat.
+   */
+  async function draftChat(messages: ChatMessage[]): Promise<ChatResult> {
+    try {
+      return await chat({ messages, max_tokens: DRAFT_MAX_TOKENS }, { timeoutMs: RESEARCHER_TIMEOUT_MS, retries: 0 });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      trace.push({ kind: "model_turn", ts: now(), detail: { phase: "draft_retry", error: msg.slice(0, 200), next_max_tokens: DRAFT_RETRY_MAX_TOKENS } });
+      return chat({ messages, max_tokens: DRAFT_RETRY_MAX_TOKENS }, { timeoutMs: RESEARCHER_TIMEOUT_MS, retries: 1 });
+    }
+  }
+
+  /** What the run has read so far, for the coverage turns (which do not carry the tool history). */
+  function readSoFar(): string {
+    const ids = [...fetched];
+    const lines = ids.map((id) => `- ${id}${st.excerpts.get(id)?.heading ? ` (${st.excerpts.get(id)?.heading})` : ""}`);
+    return `Sections already read in full:\n${lines.join("\n") || "none"}`;
+  }
+
+  /**
+   * Checklist enforcement: one targeted turn per area no claim covers (unanswered entries do not count)
+   * (at most MAX_COVERAGE_TURNS), naming the
+   * area and its Parts from the map, with the agent's own browse of those Parts. The model fetches the
+   * deciding sections; one tool-free drafting turn then revises the draft from what was fetched.
+   * Returns the revised draft, or undefined when every area is covered or nothing could be revised.
+   */
+  async function coveragePass(current: Draft): Promise<Draft | undefined> {
+    const missing = uncoveredAreas(current.claims, profile).slice(0, MAX_COVERAGE_TURNS);
+    if (missing.length === 0) return undefined;
+    const fetchedNow: Row[] = [];
+    let working = current;
+
+    for (const area of missing) {
+      targetedAreas.push(area.key);
+      const parts = areaParts(area);
+      const listing: string[] = [];
+      for (const [i, e] of parts.entries()) {
+        const out = await runTool(
+          {
+            id: `agent_browse_${area.key}_${i + 1}`,
+            type: "function",
+            function: {
+              name: "browse_part",
+              arguments: JSON.stringify({ act_id: e.act_id, chapter: e.chapter ?? "(none)", part: e.part ?? "(none)" }),
+            },
+          },
+          "agent",
+        );
+        const secs = out.rows.map((r) => `${String(r.section_id)}${r.heading ? ` ${String(r.heading)}` : ""}`);
+        listing.push(`${e.act_id} ${[e.chapter, e.part].filter(Boolean).join(" / ")}:\n  ${secs.join("\n  ")}`);
+      }
+      const ask =
+        `Checklist area (${area.key}) ${area.label} is not covered by any claim in your draft (above). An entry in unanswered does not count.\n` +
+        `Relevant Parts from the Map of the Acts: ${describeParts(parts)}.\n\nSections in those Parts:\n${listing.join("\n")}\n\n` +
+        "Call get_sections once with the sections (at most 6) that decide this area for this business, including any " +
+        "interpretation section whose definitions the area turns on. Do not draft yet: you will revise the draft next.";
+      const res = await chat(
+        {
+          messages: [
+            { role: "system", content: systemPrompt() },
+            { role: "user", content: `${task}\n\n${readSoFar()}` },
+            { role: "assistant", content: JSON.stringify(working) },
+            { role: "user", content: ask },
+          ],
+          tools: TOOLS,
+          tool_choice: "auto",
+        },
+        { timeoutMs: RESEARCHER_TIMEOUT_MS },
+      );
+      receipts.push(res.receipt);
+      const calls = res.message.tool_calls ?? [];
+      trace.push({
+        kind: "model_turn",
+        ts: now(),
+        detail: { phase: "coverage", area: area.key, tool_calls: calls.map((c) => c.function.name), content: (res.message.content ?? "").slice(0, 300) },
+        receipt: res.receipt,
+      });
+      for (const call of calls) {
+        const out = await runTool(call, "model");
+        if (call.function.name === "get_sections") fetchedNow.push(...out.rows);
+      }
+      if (calls.length === 0) {
+        const p = parseDraft(res.message.content); // the model drafted straight away
+        if (p.ok) working = p.draft;
+      }
+    }
+
+    const byId = new Map(fetchedNow.map((r) => [String(r.section_id), r]));
+    const texts = revisionTexts([...byId.values()], areaScore(missing));
+    const reviseMessages: ChatMessage[] = [
+      { role: "system", content: systemPrompt() },
+      { role: "user", content: `${task}\n\n${readSoFar()}` },
+      { role: "assistant", content: JSON.stringify(working) },
+      {
+        role: "user",
+        content:
+          `You were asked to cover these checklist areas: ${missing.map((a) => `(${a.key}) ${a.label}`).join("; ")}. ` +
+          "The full text of the sections fetched for them is below. Reply with the complete revised Draft JSON: keep your " +
+          "existing claims, add a claim (obligation or exemption) for each of these areas the text settles for this business, " +
+          "citing the sections and the definitions it turns on, and for any area the text does not settle add an entry to " +
+          "unanswered saying what you looked for. Reply with only the Draft JSON.\n\n" +
+          JSON.stringify(texts),
+      },
+    ];
+    // one correction when the revision does not parse, as in the main loop; then keep the earlier draft
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      let res: ChatResult;
+      try {
+        res = await draftChat(reviseMessages);
+      } catch (err) {
+        // the targeted searches are not lost: their sections are read, and the revision turn can still use them
+        notes.push(`Coverage revision failed (${err instanceof Error ? err.message.slice(0, 120) : String(err)}); kept the draft from before it.`);
+        return working === current ? undefined : working;
+      }
+      receipts.push(res.receipt);
+      trace.push({
+        kind: "model_turn",
+        ts: now(),
+        detail: { phase: attempt === 1 ? "coverage_draft" : "coverage_correction", tool_calls: [], content: (res.message.content ?? "").slice(0, 300) },
+        receipt: res.receipt,
+      });
+      const p = parseDraft(res.message.content);
+      if (p.ok) return p.draft;
+      if (attempt === 2) {
+        notes.push(`Coverage revision could not be parsed after one correction (${p.error}); kept the draft from before it.`);
+        break;
+      }
+      reviseMessages.push(
+        { role: "assistant", content: res.message.content ?? "" },
+        {
+          role: "user",
+          content: `${p.error} Reply again with only a single JSON object of the form {"claims": [...], "notes": [...], "unanswered": [...]} and no other text.`,
+        },
+      );
+    }
+    return working === current ? undefined : working;
+  }
+
   // The final turn comes at MAX_TURNS, or earlier after MAX_REPEATS repeated tool calls. Every path on
   // it ends the loop except the single correction and the single
   // verification turn, so a run makes at most MAX_TURNS + 2 model calls.
@@ -519,7 +741,10 @@ export async function research(profile: Profile, question: string, memory: RunMe
       ...history,
     ];
 
-    const res = await chat(noTools ? { messages } : { messages, tools: TOOLS, tool_choice: "auto" });
+    // tool-free turns are drafting or revision turns, which get the capped draftChat
+    const res = noTools
+      ? await draftChat(messages)
+      : await chat({ messages, tools: TOOLS, tool_choice: "auto" }, { timeoutMs: RESEARCHER_TIMEOUT_MS });
     receipts.push(res.receipt);
     const calls = res.message.tool_calls ?? [];
     trace.push({
@@ -545,17 +770,28 @@ export async function research(profile: Profile, question: string, memory: RunMe
         : parseDraft(res.message.content);
 
     if (parsed.ok) {
-      const unread = [...new Set(parsed.draft.claims.flatMap((c) => c.section_ids))].filter(
+      let current = parsed.draft;
+      let currentContent = res.message.content ?? "";
+      if (!coverageDone) {
+        // once per run, before the revision turn: targeted turns for checklist areas with no claim
+        coverageDone = true;
+        const revised = await coveragePass(current);
+        if (revised) {
+          current = revised;
+          currentContent = JSON.stringify(revised);
+        }
+      }
+      const unread = [...new Set(current.claims.flatMap((c) => c.section_ids))].filter(
         (id) => seen.has(id) && !fetched.has(id),
       );
       if (unread.length === 0 || verifyUsed) {
-        draft = parsed.draft;
+        draft = current;
         break;
       }
       // The draft cites sections known only from search snippets: fetch them and let the model
       // check its claims against the full text before answering.
       verifyUsed = true;
-      fallback = parsed.draft;
+      fallback = current;
       const sections: Row[] = [];
       for (let i = 0; i < unread.length; i += MAX_GET_SECTIONS) {
         const batch = unread.slice(i, i + MAX_GET_SECTIONS);
@@ -569,12 +805,14 @@ export async function research(profile: Profile, question: string, memory: RunMe
         );
         sections.push(...out.rows);
       }
-      const texts = sections.map((r) => {
-        const text = String(r.text ?? "");
-        return { ...r, text: text.length > VERIFY_TEXT_CHARS ? `${text.slice(0, VERIFY_TEXT_CHARS)} [truncated]` : text };
+      // most relevant first: words shared with the claims that cite the section
+      const texts = revisionTexts(sections, (r) => {
+        const citing = current.claims.filter((c) => c.section_ids.includes(String(r.section_id)));
+        const hay = significantWords(`${String(r.heading ?? "")} ${String(r.text ?? "")}`);
+        return [...significantWords(citing.map((c) => c.text).join(" "))].filter((w) => hay.has(w)).length;
       });
       lastExchange = [
-        { role: "assistant", content: res.message.content ?? "" },
+        { role: "assistant", content: currentContent },
         {
           role: "user",
           content:
@@ -625,11 +863,25 @@ export async function research(profile: Profile, question: string, memory: RunMe
   if (unread.length) notes.push(`Dropped section_ids not read in full with get_sections: ${unread.join(", ")}`);
   if (uncited.length) notes.push(`Dropped claims left without a citation read in full: ${uncited.join(", ")}`);
 
+  const kept = claims.filter((c) => c.section_ids.length > 0);
+  const stillUncovered = uncoveredAreas(kept, profile).map((a) =>
+    targetedAreas.includes(a.key)
+      ? `Checklist (${a.key}) ${a.label}: no claim after a targeted search of ${describeParts(areaParts(a))}.`
+      : `Checklist (${a.key}) ${a.label}: not searched in a targeted turn (limit of ${MAX_COVERAGE_TURNS} targeted turns reached).`,
+  );
+
+  const unanswered = [...result.unanswered, ...stillUncovered];
+  const modelNotes = filterAbsenceNotes(filterNotes(result.notes, fetched), unanswered, profile);
+  const removedAbsence = result.notes.length - modelNotes.length;
+  if (removedAbsence > 0) {
+    notes.push(`Removed ${removedAbsence} note(s) saying something was not found or not loaded, with no matching unanswered entry.`);
+  }
+
   return {
     draft: {
-      claims: claims.filter((c) => c.section_ids.length > 0),
-      notes: [...filterNotes(result.notes, fetched), ...notes],
-      unanswered: result.unanswered,
+      claims: kept,
+      notes: [...modelNotes, ...notes],
+      unanswered,
     },
     trace,
     receipts,

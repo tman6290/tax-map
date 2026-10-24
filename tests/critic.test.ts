@@ -13,6 +13,7 @@ const profile: Profile = {
   state: "Lagos",
   lga: "Ikeja",
   turnover_band: "under_25m",
+  fixed_assets_band: "under_250m",
   employees: 3,
   has_premises: true,
   has_signage: true,
@@ -42,7 +43,7 @@ beforeEach(() => {
 
 describe("critique", () => {
   it("supports a claim whose quote is in the cited text, using the critic app and model", async () => {
-    vi.stubEnv("METERLESS_CRITIC_MODEL", "nvidia/nemotron-3.5-super-vl-120b-a12b");
+    vi.stubEnv("METERLESS_CRITIC_MODEL", "nvidia/nemotron-3-ultra-550b-a55b");
     chatMock.mockResolvedValueOnce(
       reply({ verdict: "supported", reason: "The section sets the rate.", quote: "VAT shall be charged on the value of all taxable supplies at the rate of 7.5%", qualifier: null }),
     );
@@ -51,7 +52,7 @@ describe("critique", () => {
 
     expect(r.checked[0]).toMatchObject({ verdict: "supported", quote_verified: true, qualifier: null });
     const opts = chatMock.mock.calls[0]?.[0] as ChatOptions;
-    expect(opts).toMatchObject({ app: "taxmap-critic", model: "nvidia/nemotron-3.5-super-vl-120b-a12b", temperature: 0 });
+    expect(opts).toMatchObject({ app: "taxmap-critic", model: "nvidia/nemotron-3-ultra-550b-a55b", temperature: 0 });
     expect(opts.tools).toBeUndefined();
     expect(opts.messages[1]?.content).toContain(S147);
   });
@@ -135,14 +136,17 @@ describe("critique", () => {
       world,
     );
 
+    // one fact per (claim, section) over the cited sections plus the definition sections attached
     const facts = await world.getFacts();
-    expect(facts.map((f) => `${f.claim_id}:${f.section_id}:${f.verdict}`)).toEqual([
-      "c1:NTA-2025-s147:supported",
-      "c2:NTAA-2025-s22:struck",
-      "c2:NTA-2025-s147:struck",
-    ]);
-    expect(facts[1]).toMatchObject({ act_id: "NTAA-2025", section_no: "22", text: S22, reason: "[NTAA-2025-s22] disapplied" });
-    expect(await world.getFacts({ verdict: "struck" })).toHaveLength(2);
+    const expected = r.checked.flatMap((c) =>
+      [...new Set([...c.claim.section_ids, ...c.definitions_used])].map((id) => `${c.claim.id}:${id}:${c.verdict}`),
+    );
+    expect(facts.map((f) => `${f.claim_id}:${f.section_id}:${f.verdict}`)).toEqual(expected);
+    expect(expected[0]).toBe("c1:NTA-2025-s147:supported");
+    expect(r.checked[1]?.definitions_used).toContain("NTAA-2025-s147"); // "small business" in s22
+    const s22Fact = facts.find((f) => f.claim_id === "c2" && f.section_id === "NTAA-2025-s22");
+    expect(s22Fact).toMatchObject({ act_id: "NTAA-2025", section_no: "22", text: S22, reason: "[NTAA-2025-s22] disapplied" });
+    expect((await world.getFacts({ claim_id: "c2" })).every((f) => f.verdict === "struck")).toBe(true);
     expect(r.receipts).toHaveLength(4);
     expect(r.checked[1]?.receipt?.receipt_id).toBe(r.receipts[2]?.receipt_id);
     expect(r.trace.filter((t) => t.kind === "model_turn")).toHaveLength(4);

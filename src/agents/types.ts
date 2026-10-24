@@ -6,13 +6,22 @@ export interface Profile {
   state: string;
   lga: string;
   turnover_band: "under_25m" | "25m_to_100m" | "over_100m";
+  /** Total fixed assets in naira; small-business and small-company definitions turn on it as well as turnover. */
+  fixed_assets_band: "under_250m" | "over_250m";
   employees: number;
   has_premises: boolean;
   has_signage: boolean;
 }
 
+/**
+ * "obligation": a rule applies to this profile. "exemption": a rule does not apply to this profile,
+ * citing the disapplying or defining section.
+ */
+export type ClaimType = "obligation" | "exemption";
+
 export interface Claim {
   id: string;
+  type: ClaimType;
   text: string;
   section_ids: string[];
   tier: "federal" | "state" | "lga";
@@ -57,6 +66,8 @@ export interface CheckedClaim {
   quote: string | null;
   quote_verified: boolean;
   qualifier: string | null;
+  /** Interpretation sections whose definitions were shown to the Critic for this claim. */
+  definitions_used: string[];
   /** The receipt of the critic call that decided the verdict; null when no call was possible. */
   receipt: Receipt | null;
 }

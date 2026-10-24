@@ -11,6 +11,7 @@ const profile: Profile = {
   state: "Lagos",
   lga: "Ikeja",
   turnover_band: "under_25m",
+  fixed_assets_band: "under_250m",
   employees: 3,
   has_premises: true,
   has_signage: true,

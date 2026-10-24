@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { guardSql, research } from "../src/agents/researcher.js";
+import { MAX_TURNS, guardSql, research } from "../src/agents/researcher.js";
 import type { Profile } from "../src/agents/types.js";
 import { runSql } from "../src/data/zetaris.js";
 import { InMemoryRunMemory } from "../src/engines/hmem/index.js";
@@ -17,6 +17,7 @@ const profile: Profile = {
   state: "Lagos",
   lga: "Ikeja",
   turnover_band: "under_25m",
+  fixed_assets_band: "under_250m",
   employees: 3,
   has_premises: true,
   has_signage: true,
@@ -86,7 +87,7 @@ describe("research", () => {
       .mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s9"] }))
       .mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9"])));
 
-    const r = await research(profile, "What taxes?", new InMemoryRunMemory());
+    const r = await research(profile, "What taxes?", new InMemoryRunMemory(), { coverage: false });
 
     expect(chatMock).toHaveBeenCalledTimes(3);
     expect(sqlMock).toHaveBeenCalledTimes(2);
@@ -97,7 +98,7 @@ describe("research", () => {
     const firstResult = JSON.parse(toolMessageOnCall(1)?.content ?? "{}");
     expect(firstResult.rows[0].snippet).toHaveLength(500);
     expect(r.draft.claims).toEqual([
-      { id: "c1", text: "Dividends are taxed.", section_ids: ["NTA-2025-s9"], tier: "federal", agency: null },
+      { id: "c1", type: "obligation", text: "Dividends are taxed.", section_ids: ["NTA-2025-s9"], tier: "federal", agency: null },
     ]);
     expect(r.receipts.map((x) => x.receipt_id)).toHaveLength(3);
     expect(r.trace.filter((t) => t.kind === "tool_result")).toHaveLength(2);
@@ -112,7 +113,7 @@ describe("research", () => {
       .mockResolvedValueOnce(toolTurn("run_sql", { sql: "DELETE FROM taxmap.sections" }))
       .mockResolvedValueOnce(textTurn(JSON.stringify({ claims: [], notes: [], unanswered: [] })));
 
-    await research(profile, "q", new InMemoryRunMemory());
+    await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(sqlMock).not.toHaveBeenCalled();
     expect(JSON.parse(toolMessageOnCall(1)?.content ?? "{}").error).toMatch(/Only SELECT/);
@@ -123,7 +124,7 @@ describe("research", () => {
       .mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s9"] }))
       .mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9", "NTA-2025-s999"])));
 
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(r.draft.claims[0]?.section_ids).toEqual(["NTA-2025-s9"]);
     expect(r.draft.notes.join(" ")).toContain("c1:NTA-2025-s999");
@@ -135,7 +136,7 @@ describe("research", () => {
       .mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9"])))
       .mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9"])));
 
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(sqlMock).toHaveBeenCalledTimes(2);
     expect(sqlMock.mock.calls[1]?.[0]).toContain("WHERE section_id IN ('NTA-2025-s9')");
@@ -153,23 +154,23 @@ describe("research", () => {
       .mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9"])))
       .mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9"])));
 
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(r.draft.claims).toEqual([]);
     expect(r.draft.notes.join(" ")).toContain("not read in full with get_sections: c1:NTA-2025-s9");
   });
 
   it("sends no tools on the final turn and corrects a tool call made there", async () => {
-    // turns 1-8 call tools (the 8th is ignored), the 9th is the correction reply
+    // turns 1..MAX_TURNS call tools (the last is ignored); the one after is the correction reply
     chatMock.mockResolvedValueOnce(toolTurn("run_sql", { sql: "SELECT * FROM taxmap.sections" }));
     // a different id set each turn, so get_sections repeat suppression does not end the run early
-    for (let i = 1; i < 8; i++) chatMock.mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s9", `NTA-2025-s${i}`] }));
+    for (let i = 1; i < MAX_TURNS; i++) chatMock.mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s9", `NTA-2025-s${i}`] }));
     chatMock.mockResolvedValueOnce(textTurn(draftJson(["NTA-2025-s9"])));
 
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
-    expect(chatMock).toHaveBeenCalledTimes(9);
-    const finalTurn = chatMock.mock.calls[7]?.[0] as ChatOptions;
+    expect(chatMock).toHaveBeenCalledTimes(MAX_TURNS + 1);
+    const finalTurn = chatMock.mock.calls[MAX_TURNS - 1]?.[0] as ChatOptions;
     expect(finalTurn.tools).toBeUndefined();
     expect(finalTurn.messages.some((m) => m.role === "tool" || m.tool_calls)).toBe(false);
     expect(finalTurn.messages[1]?.content).toContain("final turn");
@@ -182,7 +183,7 @@ describe("research", () => {
       .mockResolvedValueOnce(textTurn("Here is what I found: dividends are taxed."))
       .mockResolvedValueOnce(textTurn("```json\n" + draftJson(["NTA-2025-s9"]) + "\n```"));
 
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(chatMock).toHaveBeenCalledTimes(3);
     const correction = (chatMock.mock.calls[2]?.[0] as ChatOptions).messages.at(-1);

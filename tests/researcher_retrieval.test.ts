@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { canonicalSql, filterNotes, research, researcherSystemPrompt } from "../src/agents/researcher.js";
+import { MAX_TURNS, canonicalSql, filterNotes, research, researcherSystemPrompt } from "../src/agents/researcher.js";
 import { findPart, tocEntries } from "../src/agents/toc.js";
 import type { Profile } from "../src/agents/types.js";
 import { runSql } from "../src/data/zetaris.js";
@@ -18,6 +18,7 @@ const profile: Profile = {
   state: "Lagos",
   lga: "Ikeja",
   turnover_band: "under_25m",
+  fixed_assets_band: "under_250m",
   employees: 3,
   has_premises: true,
   has_signage: true,
@@ -57,13 +58,68 @@ describe("Map of the Acts", () => {
   });
 });
 
+describe("claim types and coverage", () => {
+  it("keeps the type the model gives and infers it from the wording when missing", async () => {
+    chatMock
+      .mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s143"] }))
+      .mockResolvedValueOnce(
+        textTurn(
+          JSON.stringify({
+            claims: [
+              { id: "c1", type: "exemption", text: "The shop need not file monthly VAT returns.", section_ids: ["NTA-2025-s143"], tier: "federal", agency: null },
+              { id: "c2", text: "The shop is not required to file VAT returns as a small business.", section_ids: ["NTA-2025-s143"], tier: "federal", agency: null },
+              { id: "c3", text: "The shop must register for VAT.", section_ids: ["NTA-2025-s143"], tier: "federal", agency: null },
+            ],
+            notes: [],
+            unanswered: [],
+          }),
+        ),
+      );
+    sqlMock.mockResolvedValue({ columns: ["section_id", "act_id", "section_no", "heading", "tier", "text"], rows: [["NTA-2025-s143", "NTA-2025", "143", "VAT", "federal", "text"]] });
+
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
+
+    expect(r.draft.claims.map((c) => c.type)).toEqual(["exemption", "exemption", "obligation"]);
+  });
+
+  it("puts the coverage checklist and the 12-turn budget in the system prompt", () => {
+    const prompt = researcherSystemPrompt();
+    expect(prompt).toContain("## Coverage checklist");
+    for (const area of [
+      "(a) Registration and tax identification.",
+      "(b) Tax on business profits: companies income tax for a company; personal income tax for a sole proprietor or partners.",
+      "(c) Employer obligations where employees > 0: PAYE deduction and remittance.",
+      "(d) VAT: whether the business must register, charge VAT and file returns, with the small-business rules applied.",
+      "(e) Record keeping and returns.",
+      "(f) Any levy the Acts impose on businesses of this profile.",
+    ]) {
+      expect(prompt).toContain(area);
+    }
+    expect(prompt).toContain("you have 12 model turns");
+    expect(prompt).toContain("One duty per claim: if a sentence would contain two obligations");
+    expect(prompt).toContain("split it into two claims, each with its own citations.");
+    expect(prompt).toContain('"type": "obligation"');
+    expect(MAX_TURNS).toBe(12);
+  });
+});
+
+describe("first user message", () => {
+  it("includes the fixed-assets band and what each band means", async () => {
+    chatMock.mockResolvedValueOnce(textTurn(emptyDraft));
+    await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
+    const first = sentOn(0).messages[1]?.content ?? "";
+    expect(first).toContain('"fixed_assets_band": "under_250m"');
+    expect(first).toContain("fixed_assets_band is total fixed assets in naira");
+  });
+});
+
 describe("browse_part", () => {
   it("queries one part's sections without text and returns them to the model", async () => {
     chatMock
       .mockResolvedValueOnce(toolTurn("browse_part", { act_id: "NTA-2025", chapter: "CHAPTER SIX", part: "PART I" }))
       .mockResolvedValueOnce(textTurn(emptyDraft));
 
-    await research(profile, "q", new InMemoryRunMemory());
+    await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(sqlMock).toHaveBeenCalledWith(
       "SELECT section_id, section_no, heading FROM taxmap.sections WHERE act_id = 'NTA-2025' AND " +
@@ -78,7 +134,7 @@ describe("browse_part", () => {
       .mockResolvedValueOnce(toolTurn("browse_part", { act_id: "NTA-2025", chapter: "CHAPTER SIX", part: "PART IX" }))
       .mockResolvedValueOnce(textTurn(emptyDraft));
 
-    await research(profile, "q", new InMemoryRunMemory());
+    await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(sqlMock).not.toHaveBeenCalled();
     expect(sentOn(1).messages.find((m) => m.role === "tool")?.content).toMatch(/No such part/);
@@ -99,7 +155,7 @@ describe("repeat suppression", () => {
       .mockResolvedValueOnce(toolTurn("run_sql", { sql: "select *  from taxmap.sections where text ilike '%vat%' or text ilike '%levy%' limit 10" }))
       .mockResolvedValueOnce(textTurn(emptyDraft));
 
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(sqlMock).toHaveBeenCalledTimes(1);
     expect(sentOn(2).messages.find((m) => m.role === "tool")?.content).toMatch(/^ALREADY RUN; use browse_part or get_sections instead\n\{/);
@@ -124,7 +180,7 @@ describe("get_sections repeats and sections_read", () => {
       .mockResolvedValueOnce(toolTurn("get_sections", { section_ids: ["NTA-2025-s147", "NTA-2025-s143", "NTA-2025-s147"] }))
       .mockResolvedValueOnce(textTurn(emptyDraft));
 
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
     expect(sqlMock).toHaveBeenCalledTimes(1);
     expect(sentOn(2).messages.find((m) => m.role === "tool")?.content).toMatch(/^ALREADY RUN; use browse_part or get_sections instead\n/);
@@ -160,7 +216,7 @@ describe("note filtering", () => {
     chatMock.mockResolvedValueOnce(
       textTurn(JSON.stringify({ claims: [], notes: ["NTA-2025-s59 does not apply."], unanswered: [] })),
     );
-    const r = await research(profile, "q", new InMemoryRunMemory());
+    const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
     expect(r.draft.notes).toEqual(["note removed: unread section"]);
   });
 });

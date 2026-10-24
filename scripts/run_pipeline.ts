@@ -14,6 +14,7 @@ const profile: Profile = {
   state: "Lagos",
   lga: "Ikeja",
   turnover_band: "under_25m",
+  fixed_assets_band: "under_250m",
   employees: 3,
   has_premises: true,
   has_signage: true,
@@ -26,19 +27,31 @@ console.log(`zetaris cache warmed in ${Date.now() - warmStart} ms (${warmed.map(
 
 const res = await research(profile, question, new InMemoryRunMemory());
 console.log(`research: ${res.draft.claims.length} claims, ${Object.keys(res.sections_read).length} sections read`);
-for (const c of res.draft.claims) console.log(`  ${c.id}: ${c.text}`);
+for (const c of res.draft.claims) console.log(`  ${c.id} [${c.type}]: ${c.text}`);
+for (const u of res.draft.unanswered) console.log(`  unanswered: ${u}`);
+for (const n of res.draft.notes) console.log(`  note: ${n}`);
 
 const crit = await critique(res.draft, res.sections_read, profile, new InMemoryWorldModel());
 
 const cell = (s: string, w: number) => (s.length > w ? `${s.slice(0, w - 1)}…` : s.padEnd(w));
 console.log("");
-console.log(`${cell("claim", 6)} ${cell("verdict", 10)} ${cell("cited", 30)} ${cell("quote ok", 9)} ${cell("routed model", 40)} qualifier / reason`);
+console.log(
+  `${cell("claim", 6)} ${cell("type", 11)} ${cell("verdict", 10)} ${cell("cited", 30)} ${cell("definitions", 30)} ${cell("quote ok", 9)} ${cell("routed model", 36)} qualifier / reason`,
+);
 for (const c of crit.checked) {
   const why = (c.qualifier ?? c.reason).replace(/\s+/g, " ").slice(0, 120);
   console.log(
-    `${cell(c.claim.id, 6)} ${cell(c.verdict, 10)} ${cell(c.claim.section_ids.join(","), 30)} ${cell(String(c.quote_verified), 9)} ${cell(c.receipt?.routed_model ?? "-", 40)} ${why}`,
+    `${cell(c.claim.id, 6)} ${cell(c.claim.type, 11)} ${cell(c.verdict, 10)} ${cell(c.claim.section_ids.join(","), 30)} ${cell(c.definitions_used.join(",") || "-", 30)} ${cell(String(c.quote_verified), 9)} ${cell(c.receipt?.routed_model ?? "-", 36)} ${why}`,
   );
 }
+console.log("");
+for (const c of crit.checked) if (c.quote) console.log(`${c.claim.id} quote: "${c.quote.replace(/\s+/g, " ")}"`);
+
+console.log("\nreceipts (routed model each):");
+const line = (who: string, r: (typeof res.receipts)[number], i: number) =>
+  console.log(`  ${who} ${String(i + 1).padStart(2)}  ${r.receipt_id}  requested ${r.requested_model} -> routed ${r.routed_model}${r.signed ? "" : " (unsigned)"}`);
+res.receipts.forEach((r, i) => line("researcher", r, i));
+crit.receipts.forEach((r, i) => line("critic    ", r, i));
 
 const count = (v: string) => crit.checked.filter((c) => c.verdict === v).length;
 const all = [...res.receipts, ...crit.receipts];

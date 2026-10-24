@@ -13,7 +13,9 @@ function show(label: string, r: ChatResult): void {
   console.log(`tokens in/out:   ${r.receipt.input_tokens}/${r.receipt.output_tokens}, ${r.receipt.latency_ms} ms`);
 }
 
-const a = await chat({ messages: [{ role: "user", content: "Reply with the single word OK." }] });
+const SMOKE = { timeoutMs: 60_000 }; // the smoke calls are small, so they keep the short limit
+
+const a = await chat({ messages: [{ role: "user", content: "Reply with the single word OK." }] }, SMOKE);
 show("(a) plain", a);
 console.log(`content:         ${JSON.stringify(a.message.content)}`);
 
@@ -38,7 +40,7 @@ const b = await chat({
     },
   ],
   tools: [runSql],
-});
+}, SMOKE);
 show("(b) tools", b);
 const calls = b.message.tool_calls ?? [];
 if (calls.length === 0) {
