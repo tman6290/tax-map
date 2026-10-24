@@ -75,7 +75,7 @@ describe("progress lines", () => {
     expect(describeCriticStep(read)).toBe("");
     expect(criticDetail(read)).toBe("Critic read claim c5 (NTA-2025-s143): struck");
     const c = { claim: { id: "c5", text: "t", section_ids: ["NTA-2025-s143", "NTA-2025-s144"], type: "obligation" }, verdict: "struck" } as unknown as CheckedClaim;
-    expect(describeVerdict(c)).toBe("Critic checked claim 5 against sections 143 and 144 of the Nigeria Tax Act: rejected");
+    expect(describeVerdict(c)).toBe("Critic checked claim 5 against sections 143 and 144 of the Nigeria Tax Act: set aside");
     expect(verdictDetail(c)).toBe("Critic: claim c5 struck (NTA-2025-s143, NTA-2025-s144)");
     const one = { ...c, claim: { ...c.claim, id: "c1", section_ids: ["NTAA-2025-s4"] }, verdict: "supported" } as CheckedClaim;
     expect(describeVerdict(one)).toBe("Critic checked claim 1 against section 4 of the Nigeria Tax Administration Act: applies to you");

@@ -2,7 +2,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Profile } from "../agents/types.js";
-import type { PipelineOutput, RunEvent } from "./types.js";
+import type { PipelineOutput, ReceiptRow, RunEvent } from "./types.js";
 
 /** A recorded live run, replayed in sample mode (written by scripts/record_sample.ts). */
 export interface Sample {
@@ -12,6 +12,15 @@ export interface Sample {
   question: string;
   events: RunEvent[];
   result: PipelineOutput;
+}
+
+/**
+ * Only the receipt fields the page shows; anything else (envelopes, signatures) is dropped before a
+ * receipt is stored in a sample.
+ */
+export function sampleReceipt(r: ReceiptRow): ReceiptRow {
+  const { call, agent, receipt_id, decision_id, requested_model, routed_model, provider, label, tier, kind, input_tokens, output_tokens, latency_ms, signed } = r;
+  return { call, agent, receipt_id, decision_id, requested_model, routed_model, provider, label, tier, kind, input_tokens, output_tokens, latency_ms, signed };
 }
 
 export function samplesDir(): string {

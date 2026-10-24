@@ -23,6 +23,11 @@ export interface Claim {
   id: string;
   type: ClaimType;
   text: string;
+  /**
+   * The claim in plain words for a business owner: one second-person sentence, under 25 words, no
+   * legal terms, saying only what `text` says. "" when the model left it out; the page then shows `text`.
+   */
+  plain: string;
   section_ids: string[];
   tier: "federal" | "state" | "lga";
   agency: string | null;
@@ -72,6 +77,12 @@ export interface CheckedClaim {
   definitions: Array<{ section_id: string; term: string; definition: string }>;
   /** The receipt of the critic call that decided the verdict; null when no call was possible. */
   receipt: Receipt | null;
+  /**
+   * True when the Critic model confirmed that `claim.plain` claims nothing beyond `claim.text` (or
+   * replaced it with its fix). False when there was no plain line or the check could not run; the
+   * page then shows the legal sentence alone.
+   */
+  plain_checked: boolean;
 }
 
 export interface CritiqueResult {

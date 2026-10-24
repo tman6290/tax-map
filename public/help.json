@@ -60,7 +60,7 @@
     },
     "struck": {
       "title": "Rejected by the check",
-      "text": "The Critic compared this line with the law's own words and found the text does not support it. The summary calls these “struck”. Read the reason to see why."
+      "text": "The Critic compared this line with the law's own words and found the text does not support it. The summary counts these as “set aside”, and they are listed after your answer, not in it. Read the reason to see why."
     },
     "unchecked": {
       "title": "Not verified",

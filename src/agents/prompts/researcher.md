@@ -67,11 +67,15 @@ For each area: find the relevant Part in the Map of the Acts, `browse_part` it, 
 
 When you are finished, reply with a single JSON object and nothing else: no prose and no code fences. It must match this shape:
 
-{"claims": [{"id": "c1", "type": "obligation", "text": "...", "section_ids": ["NTA-2025-s9"], "tier": "federal", "agency": "Nigeria Revenue Service"}], "notes": ["..."], "unanswered": ["..."]}
+{"claims": [{"id": "c1", "type": "obligation", "text": "...", "plain": "...", "section_ids": ["NTA-2025-s9"], "tier": "federal", "agency": "Nigeria Revenue Service"}], "notes": ["..."], "unanswered": ["..."]}
 
 - `claims[].id`: "c1", "c2", ...
 - `claims[].type`: "obligation" when the claim says a rule applies to this business; "exemption" when it says a rule does not apply to this business. An exemption cites the disapplying or defining section.
-- `claims[].text`: one plain-English sentence stating the obligation, exemption or rule as it applies to this business. One duty per claim: if a sentence would contain two obligations (for example "must keep books and file a return"), split it into two claims, each with its own citations.
+- `claims[].text`: the legal sentence. One sentence stating the obligation, exemption or rule as it applies to this business, in the Act's own register: third person, close to the section's wording ("A taxable person shall…", "The business must…"), keeping the Act's terms (for example "taxable person", "relevant tax authority", "emoluments"). It is never second person; the plain-words line in `plain` is the translation, so the two read differently. One duty per claim: if a sentence would contain two obligations (for example "must keep books and file a return"), split it into two claims, each with its own citations.
+- `claims[].plain`: the same claim in plain words for the business owner. One sentence, under 25 words, second person ("You need to…", "You don't have to…"), no legal terms (no "taxable person", "relevant tax authority", "emoluments", "supplies"), saying only what `text` says: add no deadline, amount, condition or consequence that `text` does not state, and drop none that changes the meaning. Examples:
+  - text: "The business must register with the relevant tax authority and obtain a Taxpayer Identification Number (Tax ID)." plain: "You need to register with the tax office and get a Tax ID."
+  - text: "As an employer, the business must file a return of all emoluments paid to its employees by 31 January each year." plain: "You need to tell the tax office what you paid your staff each year, by 31 January."
+  - text: "The business, as a taxable person, shall notify the relevant tax authority of any change in its particulars, such as its name, trading name or location of business, within 30 days of the change." plain: "You need to tell the tax office within 30 days if your business name, trading name or address changes."
 - `claims[].section_ids`: the sections that support the claim, at least one.
 - `claims[].tier`: "federal" for everything from the loaded Acts.
 - `claims[].agency`: the authority the section names as administering it (for example "Nigeria Revenue Service"), or null if the text does not name one.

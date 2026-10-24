@@ -15,8 +15,48 @@ const QUOTE_NOT_FOUND = "quote not found in cited text: ";
 const NOT_ESTABLISHED = "text does not establish the claim";
 /** Critic calls get longer than the 60 s default: Nightshift 1.2.3 allows up to 120 s to first token on cloud lanes. */
 const CRITIC_TIMEOUT_MS = 150_000;
+/** Profile band tokens as words, for reasons a business owner reads. */
+const BAND_WORDS: Record<string, string> = {
+  under_25m: "turnover under ₦25 million",
+  "25m_to_100m": "turnover between ₦25 million and ₦100 million",
+  over_100m: "turnover over ₦100 million",
+  under_250m: "fixed assets under ₦250 million",
+  over_250m: "fixed assets over ₦250 million",
+};
+/**
+ * A band token, with the field name the model may put before it ("turnover band", "fixed_assets_band")
+ * and a figure in brackets after it ("(≤ N25m)"), both absorbed so the words are not doubled.
+ */
+const BAND_TOKEN =
+  /\b(?:(?:turnover|fixed[ _]assets)(?:[ _]band)?(?:\s*(?:of|is|=|:))?\s+)?(under_25m|25m_to_100m|over_100m|under_250m|over_250m)\b(?:\s*\([^()]*[N₦]\s?\d[^()]*\))?/gi;
+/** Grounding-check prefixes the Critic adds to a reason; the trace keeps them, the page does not. */
+const REASON_PREFIX = /^(?:\s*(?:quote not found in cited text|text does not establish the claim)\s*:\s*)+/i;
+
+/**
+ * The Why text a business owner reads: grounding-check prefixes removed and profile band tokens
+ * (under_25m, over_250m, ...) written as words. Applied to each claim's final reason; the trace keeps
+ * the raw reason.
+ */
+export function cleanReason(reason: string): string {
+  const stripped = reason.replace(REASON_PREFIX, "");
+  const text = stripped.replace(BAND_TOKEN, (_m, band: string) => BAND_WORDS[band.toLowerCase()] ?? band).trim();
+  // the model's sentence started after the prefix, so it may start in lower case
+  return stripped !== reason ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
+/** The plain-words check is one short call per claim, with no tools. */
+const PLAIN_CHECK_TIMEOUT_MS = 60_000;
+
+/** A claim's verdict before the definitions and the plain-words check are attached. */
+type Judged = Omit<CheckedClaim, "claim" | "definitions_used" | "definitions" | "plain_checked">;
+
 /** Piece size when a call fails with HTTP 502: a 1,944-character section that failed whole passed in 800-character pieces. */
 const FALLBACK_PIECE_CHARS = 800;
+
+/** The Critic's model: METERLESS_CRITIC_MODEL, or Nemotron Ultra. */
+export function criticModel(): string {
+  return process.env.METERLESS_CRITIC_MODEL || DEFAULT_CRITIC_MODEL;
+}
 
 /** Longest piece of operative text per Critic call; a normal section is judged whole. */
 export function pieceChars(): number {
@@ -247,7 +287,7 @@ function decisive(p: PieceResult, type: ClaimType): boolean {
 export function mergePieces(
   pieces: PieceResult[],
   type: ClaimType = "obligation",
-): Omit<CheckedClaim, "claim" | "definitions_used" | "definitions"> {
+): Judged {
   const pick = (p: PieceResult, verdict: Verdict = p.verdict) => ({
     verdict,
     reason: pieces.length > 1 ? `[${p.label}] ${p.reason}` : p.reason,
@@ -322,7 +362,7 @@ export async function critique(
   const checked: CheckedClaim[] = [];
   const receipts: Receipt[] = [];
   const trace = observedTrace(options.onTrace);
-  const model = process.env.METERLESS_CRITIC_MODEL || DEFAULT_CRITIC_MODEL;
+  const model = criticModel();
 
   for (const claim of draft.claims) {
     const cited = claim.section_ids
@@ -337,7 +377,7 @@ export async function critique(
     const defs = cited.length ? matchDefinitions(claim.text, contexts) : [];
     const definitionsUsed = [...new Set(defs.map((d) => d.section_id))];
 
-    let result: Omit<CheckedClaim, "claim" | "definitions_used" | "definitions">;
+    let result: Judged;
     if (cited.length === 0) {
       // nothing to judge against; cannot happen for drafts from research(), which cites only sections read
       result = {
@@ -364,11 +404,15 @@ export async function critique(
       }
       result = mergePieces(results, claim.type ?? "obligation");
     }
+    // after the verdict: does the plain-words line say anything the legal sentence does not?
+    const plainCheck = await checkPlain(claim, model, receipts, trace);
     const done: CheckedClaim = {
-      claim,
+      claim: { ...claim, plain: plainCheck.plain },
       ...result,
+      reason: cleanReason(result.reason),
       definitions_used: definitionsUsed,
       definitions: defs.map((d) => ({ section_id: d.section_id, term: d.term, definition: d.definition })),
+      plain_checked: plainCheck.checked,
     };
     checked.push(done);
     options.onChecked?.(done);
@@ -384,13 +428,113 @@ export async function critique(
         source: "taxmap.sections",
         verdict: result.verdict,
         claim_id: claim.id,
-        reason: result.reason,
+        reason: cleanReason(result.reason),
         quote: result.quote,
         ts: now(),
       });
     }
   }
   return { checked, receipts, trace };
+}
+
+export const PLAIN_CHECK_PROMPT = [
+  "You compare two sentences about Nigerian tax law. The legal sentence states what a statute requires of a business; the plain sentence restates it for the business owner.",
+  "Does the plain sentence claim anything the legal sentence does not? Leaving out detail or using simpler words is fine. Adding a duty, deadline, amount, condition, exception or consequence is not, and neither is changing who must act or what they must do.",
+  'Answer with one JSON object and nothing else: {"ok": boolean, "fix": string|null}.',
+  'ok is true when the plain sentence claims nothing beyond the legal sentence; then fix is null. When ok is false, fix is a corrected plain sentence: one sentence, under 25 words, second person ("You need to…", "You don\'t have to…"), no legal terms, saying only what the legal sentence says.',
+].join("\n\n");
+
+const PlainCheckSchema = z.object({
+  ok: z.boolean(),
+  fix: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v) => (v ?? "").replace(/\s+/g, " ").trim()),
+});
+
+export type PlainCheckParse = { ok: true; value: { ok: boolean; fix: string } } | { ok: false; error: string };
+
+/** Every balanced {...} span in `text`, in order, skipping braces inside JSON strings. */
+function jsonObjectSpans(text: string): string[] {
+  const spans: string[] = [];
+  for (let start = text.indexOf("{"); start >= 0; start = text.indexOf("{", start + 1)) {
+    let depth = 0;
+    let inString = false;
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (inString) {
+        if (ch === "\\") i++;
+        else if (ch === '"') inString = false;
+      } else if (ch === '"') inString = true;
+      else if (ch === "{") depth++;
+      else if (ch === "}" && --depth === 0) {
+        spans.push(text.slice(start, i + 1));
+        break;
+      }
+    }
+  }
+  return spans;
+}
+
+/**
+ * The first {ok, fix} object in the reply. The model sometimes follows the object with more text or
+ * a second object, so each balanced object is tried in turn rather than first "{" to last "}".
+ */
+export function parsePlainCheck(content: string | null): PlainCheckParse {
+  const text = (content ?? "").replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+  const spans = jsonObjectSpans(text);
+  if (!spans.length) return { ok: false, error: "No JSON object found in the reply." };
+  for (const span of spans) {
+    try {
+      const parsed = PlainCheckSchema.safeParse(JSON.parse(span));
+      if (parsed.success) return { ok: true, value: parsed.data };
+    } catch {
+      // not JSON: try the next object
+    }
+  }
+  return { ok: false, error: "No JSON object matching {ok, fix} in the reply." };
+}
+
+/**
+ * One Critic-model call per claim, no tools, 60 s: does `plain` claim anything `text` does not? If it
+ * does, the model's fix replaces it; a fix that is missing leaves no plain line (the page shows the
+ * legal sentence). If the call fails or the reply cannot be read, the line is kept but not marked
+ * checked, and the page shows the legal sentence alone.
+ */
+export async function checkPlain(
+  claim: Claim,
+  model: string,
+  receipts: Receipt[],
+  trace: TraceStep[],
+): Promise<{ plain: string; checked: boolean }> {
+  const plain = (claim.plain ?? "").trim();
+  if (!plain) return { plain: "", checked: false };
+  const messages: ChatMessage[] = [
+    { role: "system", content: PLAIN_CHECK_PROMPT },
+    { role: "user", content: `Legal sentence: ${claim.text}\nPlain sentence: ${plain}` },
+  ];
+  const step = (detail: Record<string, unknown>, receipt?: Receipt) =>
+    trace.push({ kind: "model_turn", ts: now(), detail: { phase: "plain_check", claim_id: claim.id, ...detail }, ...(receipt ? { receipt } : {}) });
+  let res: Awaited<ReturnType<typeof chatWithFallback>>;
+  try {
+    res = await chatWithFallback({ messages, app: CRITIC_APP, model, temperature: 0 }, { timeoutMs: PLAIN_CHECK_TIMEOUT_MS, retries: 0 });
+  } catch (err) {
+    step({ ok: null, error: err instanceof Error ? err.message : String(err) });
+    return { plain, checked: false };
+  }
+  receipts.push(res.receipt);
+  const parsed = parsePlainCheck(res.message.content);
+  if (!parsed.ok) {
+    step({ ok: null, error: parsed.error, content: (res.message.content ?? "").slice(0, 300) }, res.receipt);
+    return { plain, checked: false };
+  }
+  if (parsed.value.ok) {
+    step({ ok: true }, res.receipt);
+    return { plain, checked: true };
+  }
+  step({ ok: false, original: plain, fix: parsed.value.fix || null }, res.receipt);
+  return parsed.value.fix ? { plain: parsed.value.fix, checked: true } : { plain: "", checked: false };
 }
 
 async function judgePiece(
@@ -468,6 +612,7 @@ async function judgePiece(
         verdict: out.verdict,
         struck_because: out.struck_because,
         quote_verified: out.quote_verified,
+        reason: out.reason, // raw, with any grounding-check prefix; the checked claim carries the cleaned text
         definitions: defs.map((d) => `${d.section_id}:${d.term}`),
         content: (res.message.content ?? "").slice(-300),
       },

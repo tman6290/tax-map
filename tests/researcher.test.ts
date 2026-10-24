@@ -98,7 +98,7 @@ describe("research", () => {
     const firstResult = JSON.parse(toolMessageOnCall(1)?.content ?? "{}");
     expect(firstResult.rows[0].snippet).toHaveLength(500);
     expect(r.draft.claims).toEqual([
-      { id: "c1", type: "obligation", text: "Dividends are taxed.", section_ids: ["NTA-2025-s9"], tier: "federal", agency: null },
+      { id: "c1", type: "obligation", text: "Dividends are taxed.", plain: "", section_ids: ["NTA-2025-s9"], tier: "federal", agency: null },
     ]);
     expect(r.receipts.map((x) => x.receipt_id)).toHaveLength(3);
     expect(r.trace.filter((t) => t.kind === "tool_result")).toHaveLength(2);

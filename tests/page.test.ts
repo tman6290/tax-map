@@ -92,12 +92,52 @@ describe("page copy", () => {
     expect(css).not.toMatch(/\.help \{[^}]*(?:top|vertical-align: middle)/);
   });
 
-  it("shows a struck claim in full legibility: no strikethrough, red chip and border, faint red tint, reason open", () => {
+  it("shows a set-aside claim in full legibility: no strikethrough, red chip and border, faint red tint, reason shown", () => {
     const css = read("styles.css");
     expect(css).not.toContain("line-through");
     expect(css).toMatch(/\.claim\.v-struck \{[^}]*border-left-color: var\(--v-struck\)[^}]*background: #fdf4f5/);
     expect(css).toMatch(/\.chip\.v-struck \{[^}]*background: var\(--v-struck\)/);
-    expect(js).toContain("more.open = v === \"struck\"");
+    const card = /function setAsideCard\(c\) \{[\s\S]*?\n\}/.exec(js)?.[0] ?? "";
+    expect(card).toContain("claimHead(c), claimMeta(c)"); // plain line, legal sentence, citation row
+    expect(card).toContain('text: "Why"');
+    expect(card).not.toContain("details"); // the reason is shown, not folded away
+  });
+
+  it("puts the plain-words line first and the legal sentence under 'What the law says'", () => {
+    const head = /function claimHead\(c\) \{[\s\S]*?\n\}/.exec(js)?.[0] ?? "";
+    expect(head).toContain('el("p", { className: "claim-text", text: plainText }), el("p", { className: "law-label", text: "What the law says" }), legal');
+    expect(js).toContain("const plainLine = (c) => (c.plain_checked && c.claim.plain ? c.claim.plain : \"\")"); // unchecked or empty: legal sentence alone
+    const css = read("styles.css");
+    expect(css).toMatch(/\.claim-text \{[^}]*font: 400 var\(--t-md\) \/ 1\.5 var\(--serif\)/);
+    expect(css).not.toMatch(/\.legal-text \{[^}]*font/); // body sans at body size
+  });
+
+  it("moves set-aside lines out of the answer into their own section, before unanswered and notes", () => {
+    const at = (needle: string) => html.indexOf(needle);
+    expect(at('id="claims"')).toBeLessThan(at('id="setaside-block"'));
+    expect(at('id="setaside-block"')).toBeLessThan(at('id="unanswered-block"'));
+    const block = /<section class="block" id="setaside-block"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
+    expect(text(block)).toContain("Lines we checked and set aside");
+    expect(text(block)).toContain("Tax Map drafted these but could not find support for them in the law, so they are not part of your answer.");
+    expect(js).toContain('claims.filter((c) => c.verdict !== "struck").map(claimCard)');
+    expect(js).toContain('claims.filter((c) => c.verdict === "struck")');
+  });
+
+  it("words the summary as things that apply, exemptions, not verified and set aside, omitting zero clauses", () => {
+    const src = /function summaryLine\(n\) \{[\s\S]*?\n\}/.exec(js)?.[0] ?? "";
+    const summaryLine = new Function(`${src}; return summaryLine;`)() as (n: Record<string, number>) => string;
+    expect(summaryLine({ obligations: 4, exemptions: 0, struck: 2, unchecked: 0 })).toBe("4 things apply to you; 2 lines were set aside after checking");
+    expect(summaryLine({ obligations: 1, exemptions: 1, struck: 1, unchecked: 0 })).toBe("1 thing applies to you, 1 exemption; 1 line was set aside after checking");
+    expect(summaryLine({ obligations: 3, exemptions: 2, struck: 0, unchecked: 1 })).toBe("3 things apply to you, 2 exemptions, 1 could not be verified");
+    expect(summaryLine({ obligations: 0, exemptions: 0, struck: 0, unchecked: 0 })).toBe("0 things apply to you");
+    expect(help.terms.struck!.text).toContain("“set aside”");
+    expect(help.terms.struck!.text).not.toContain("struck");
+  });
+
+  it("renders the drawer text with nested lists from lawtext.js", () => {
+    expect(js).toContain('import { lawBlocks } from "./lawtext.js";');
+    expect(js).toContain("$(\"drawer-text\").replaceChildren(...renderLaw(s.text))");
+    expect(read("styles.css")).toMatch(/\.law-list \.law-list \{/);
   });
 
   it("lists at most four defined terms per card, claim terms first, under 'Defined in the law'", () => {

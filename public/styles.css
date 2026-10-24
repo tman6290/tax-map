@@ -550,6 +550,28 @@ fieldset.yesno {
   font: 400 var(--t-md) / 1.5 var(--serif);
 }
 
+/* under the plain-words line: the legal sentence in the body sans */
+.law-label {
+  margin: 0 0 4px;
+  font: 600 var(--t-sm) / 1.2 var(--sans);
+  color: var(--muted);
+}
+
+.legal-text {
+  margin: 0 0 var(--s2);
+}
+
+.why-label {
+  font: 600 var(--t-sm) / 1.2 var(--sans);
+  color: var(--muted);
+  margin: var(--s2) 0 var(--s1);
+}
+
+.block-intro {
+  color: var(--muted);
+  margin-bottom: var(--s3);
+}
+
 /* chip, type, citation and the way into the law share one baseline row */
 .claim-meta {
   display: flex;
@@ -864,8 +886,18 @@ dialog::backdrop {
   margin: 0 0 var(--s2);
 }
 
-.drawer-text p.item {
+.law-list {
+  list-style: none;
+  margin: 0 0 var(--s2);
   padding-left: var(--s3);
+}
+
+.law-list .law-list {
+  margin: var(--s1) 0 0;
+}
+
+.law-list li {
+  margin-bottom: var(--s1);
 }
 
 /* ---------------------------------------------------------------- footer */

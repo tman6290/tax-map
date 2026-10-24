@@ -80,7 +80,8 @@ describe("critique", () => {
     const r = await critique(draft(claim("c1", "VAT is 7.5%.", ["NTA-2025-s147"])), sections, profile, new InMemoryWorldModel());
     expect(r.checked[0]?.verdict).toBe("struck");
     expect(r.checked[0]?.quote_verified).toBe(false);
-    expect(r.checked[0]?.reason).toMatch(/^quote not found in cited text: Rate is set\./);
+    expect(r.checked[0]?.reason).toMatch(/^Rate is set\./); // the prefix stays in the trace, not in the Why
+    expect(r.trace.some((t) => /^quote not found in cited text: Rate is set\./.test(String((t.detail as { reason?: string }).reason)))).toBe(true);
   });
 
   it("strikes a negative claim against a silent section, as the prompt rule requires", async () => {

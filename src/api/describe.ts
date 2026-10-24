@@ -156,6 +156,7 @@ const claimNo = (id: unknown) => String(id ?? "").replace(/^c(?=\d+$)/, "");
  */
 export function describeCriticStep(step: TraceStep): string {
   const d = (step.detail ?? {}) as D;
+  if (d.phase === "plain_check") return "";
   if (d.error) return `Critic is taking longer on claim ${claimNo(d.claim_id)}; trying again`;
   if (d.verdict === "unparseable") return `Critic is re-reading claim ${claimNo(d.claim_id)}`;
   return "";
@@ -164,6 +165,11 @@ export function describeCriticStep(step: TraceStep): string {
 /** The technical line for a Critic trace step, for the run log. */
 export function criticDetail(step: TraceStep): string {
   const d = (step.detail ?? {}) as D;
+  if (d.phase === "plain_check") {
+    if (d.ok === true) return `Critic plain-words check for claim ${String(d.claim_id)}: ok`;
+    if (d.ok === false) return `Critic plain-words check for claim ${String(d.claim_id)}: replaced "${String(d.original)}" with ${d.fix ? `"${String(d.fix)}"` : "nothing (legal sentence shown)"}`;
+    return `Critic plain-words check for claim ${String(d.claim_id)} did not complete (${String(d.error)}); legal sentence shown`;
+  }
   const piece = d.piece ? ` (${String(d.piece)})` : "";
   if (d.error) return `Critic could not check claim ${String(d.claim_id)}${piece}: call failed`;
   if (d.verdict === "unparseable") return `Critic reply for claim ${String(d.claim_id)}${piece} did not parse; asking again`;
@@ -174,7 +180,7 @@ export function criticDetail(step: TraceStep): string {
 const VERDICT_WORDS: Record<string, string> = {
   supported: "applies to you",
   qualified: "applies with a condition",
-  struck: "rejected",
+  struck: "set aside",
   unchecked: "could not be verified",
 };
 

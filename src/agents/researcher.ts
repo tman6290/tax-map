@@ -247,6 +247,12 @@ const ClaimSchema = z
     id: z.string().min(1),
     type: z.enum(["obligation", "exemption"]).optional(),
     text: z.string().min(1),
+    // optional: a missing or blank plain line falls back to the legal sentence on the page
+    plain: z
+      .string()
+      .nullable()
+      .optional()
+      .transform((v) => (v ?? "").replace(/\s+/g, " ").trim()),
     section_ids: z.array(z.string()),
     tier: z.enum(["federal", "state", "lga"]),
     agency: z

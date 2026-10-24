@@ -5,7 +5,7 @@
 // 0). If no attempt meets both minimums, nothing is written and the existing sample stays.
 // --out writes elsewhere (for example a candidate to compare before replacing the sample).
 // Default output: data/samples/retail-sole-proprietor-ikeja.json, holding the full event trace,
-// draft, checked claims, definitions and receipts. Receipts keep model, lane, provider, receipt_id,
+// draft, checked claims (with each claim's plain-words line and plain_checked), definitions and receipts. Receipts keep model, lane, provider, receipt_id,
 // tokens and the signed flag; signatures and public keys are never stored (the client keeps only
 // `signed`).
 import "dotenv/config";
@@ -13,8 +13,8 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import type { Profile } from "../src/agents/types.js";
 import { runPipeline } from "../src/api/pipeline.js";
-import { samplesDir, type Sample } from "../src/api/samples.js";
-import type { PipelineOutput, ReceiptRow, RunEvent } from "../src/api/types.js";
+import { sampleReceipt, samplesDir, type Sample } from "../src/api/samples.js";
+import type { PipelineOutput, RunEvent } from "../src/api/types.js";
 import { warmCache } from "../src/data/warm.js";
 
 const NAME = "retail-sole-proprietor-ikeja";
@@ -48,12 +48,6 @@ const minClaims = intArg("--min-claims", 0);
 const minSupported = intArg("--min-supported", 0);
 const out = arg("--out") ? resolve(String(arg("--out"))) : join(samplesDir(), `${NAME}.json`);
 
-/** Only the receipt fields the page shows; anything else (envelopes, signatures) is dropped. */
-function cleanReceipt(r: ReceiptRow): ReceiptRow {
-  const { call, agent, receipt_id, decision_id, requested_model, routed_model, provider, label, tier, kind, input_tokens, output_tokens, latency_ms, signed } = r;
-  return { call, agent, receipt_id, decision_id, requested_model, routed_model, provider, label, tier, kind, input_tokens, output_tokens, latency_ms, signed };
-}
-
 interface Attempt {
   n: number;
   events: RunEvent[];
@@ -64,7 +58,13 @@ interface Attempt {
 
 const counts = (r: PipelineOutput) => {
   const t = r.totals;
-  return `${r.checked.length} claims (${t.supported} supported, ${t.qualified} qualified, ${t.struck} struck, ${t.unchecked} unchecked), ${t.model_calls} model calls, ${t.signed_receipts} signed`;
+  // plain-words lines: drafted by the Researcher (claim.plain), confirmed or fixed by the Critic (plain_checked)
+  const drafted = r.checked.filter((c) => c.claim.plain).length;
+  const checked = r.checked.filter((c) => c.plain_checked).length;
+  return (
+    `${r.checked.length} claims (${t.supported} supported, ${t.qualified} qualified, ${t.struck} struck, ${t.unchecked} unchecked), ` +
+    `${drafted} with a plain line, ${checked} plain_checked, ${t.model_calls} model calls, ${t.signed_receipts} signed`
+  );
 };
 const meets = (r: PipelineOutput) => r.checked.length >= minClaims && r.totals.supported >= minSupported;
 
@@ -111,7 +111,7 @@ const sample: Sample = {
   profile,
   question,
   events: best.events,
-  result: { ...best.result, receipts: best.result.receipts.map(cleanReceipt) },
+  result: { ...best.result, receipts: best.result.receipts.map(sampleReceipt) },
 };
 await mkdir(dirname(out), { recursive: true });
 await writeFile(out, JSON.stringify(sample, null, 2), "utf-8");

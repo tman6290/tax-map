@@ -1,6 +1,8 @@
 // Tax Map page: profile form, live progress over server-sent events, results with citations.
 // Plain DOM; every value from the server is set as text, never as HTML.
 
+import { lawBlocks } from "./lawtext.js";
+
 const AMAKA = {
   business_type: "sole_proprietor",
   sector: "retail",
@@ -336,29 +338,52 @@ function plainReason(reason) {
   return /^no piece supports the claim$/i.test(reason ?? "") ? "None of the cited sections, read in full, supports this line." : plain(reason ?? "", STEP_FAILED);
 }
 
+/** The plain-words line, when the Critic confirmed it says nothing the legal sentence does not. */
+const plainLine = (c) => (c.plain_checked && c.claim.plain ? c.claim.plain : "");
+
+/**
+ * The top of a card: the plain-words line in the serif, then the legal sentence in the sans under
+ * "What the law says". With no checked plain line, the legal sentence takes the plain line's place.
+ */
+function claimHead(c) {
+  const plainText = plainLine(c);
+  if (!plainText) {
+    const text = el("p", { className: "claim-text" });
+    text.append(annotated(c.claim.text, "text"));
+    return [text];
+  }
+  const legal = el("p", { className: "legal-text" });
+  legal.append(annotated(c.claim.text, "text"));
+  return [el("p", { className: "claim-text", text: plainText }), el("p", { className: "law-label", text: "What the law says" }), legal];
+}
+
+/** One row: verdict, type, citation and the way into the law. The labels are explained once, in the labels panel. */
+function claimMeta(c) {
+  const v = c.verdict;
+  const kind = c.claim.type === "exemption" ? "exemption" : "obligation";
+  return el(
+    "div",
+    { className: "claim-meta" },
+    el("span", { className: `chip v-${v}`, text: VERDICT_LABEL[v] ?? v }),
+    el("span", { className: "claim-type", text: kind === "exemption" ? "Exemption" : "Obligation" }),
+    ...citationParts(c.claim.section_ids),
+  );
+}
+
+/** A claim the Critic set aside: plain line, legal sentence, citation and the reason, with no disclosure. */
+function setAsideCard(c) {
+  const card = el("article", { className: `claim v-${c.verdict}` });
+  card.append(...claimHead(c), claimMeta(c), el("h4", { className: "why-label", text: "Why" }), el("p", { className: "reason", text: plainReason(c.reason) }));
+  return card;
+}
+
 function claimCard(c) {
   const v = c.verdict;
   const card = el("article", { className: `claim v-${v}` });
+  card.append(...claimHead(c), claimMeta(c));
 
-  // the claim text, then one row: verdict, type, citation, the way into the law.
-  // The labels are explained once, in the panel behind "What do these labels mean?"
-  const text = el("p", { className: "claim-text" });
-  text.append(annotated(c.claim.text, "text"));
-  const kind = c.claim.type === "exemption" ? "exemption" : "obligation";
-  card.append(
-    text,
-    el(
-      "div",
-      { className: "claim-meta" },
-      el("span", { className: `chip v-${v}`, text: VERDICT_LABEL[v] ?? v }),
-      el("span", { className: "claim-type", text: kind === "exemption" ? "Exemption" : "Obligation" }),
-      ...citationParts(c.claim.section_ids),
-    ),
-  );
-
-  // the quote and the reasoning; a rejected line shows its reason up front, since the reason is the point
-  const more = el("details", { className: "claim-more" }, el("summary", { text: v === "struck" ? "Hide the quote and why" : "Show the quote and why" }));
-  more.open = v === "struck";
+  // the quote and the reasoning
+  const more = el("details", { className: "claim-more" }, el("summary", { text: "Show the quote and why" }));
   more.addEventListener("toggle", () => {
     more.querySelector("summary").textContent = `${more.open ? "Hide" : "Show"} the quote and why`;
   });
@@ -397,6 +422,19 @@ function plainUnanswered(item) {
   return m ? `${m[1]}: the check could not confirm this from the Acts.` : item;
 }
 
+/**
+ * "4 things apply to you, 1 exemption, 1 could not be verified; 2 lines were set aside after checking".
+ * The exemption, not-verified and set-aside clauses appear only when their count is above 0.
+ */
+function summaryLine(n) {
+  const plural = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+  let line = `${n.obligations} ${n.obligations === 1 ? "thing applies" : "things apply"} to you`;
+  if (n.exemptions) line += `, ${plural(n.exemptions, "exemption", "exemptions")}`;
+  if (n.unchecked) line += `, ${n.unchecked} could not be verified`;
+  if (n.struck) line += `; ${n.struck} ${n.struck === 1 ? "line was" : "lines were"} set aside after checking`;
+  return line;
+}
+
 function renderResult(r) {
   markedTerms.clear();
   const claims = r.checked ?? [];
@@ -407,16 +445,19 @@ function renderResult(r) {
     struck: claims.filter((c) => c.verdict === "struck").length,
     unchecked: claims.filter((c) => c.verdict === "unchecked").length,
   };
-  const plural = (k, one, many) => `${k} ${k === 1 ? one : many}`;
   const summary = $("summary");
   summary.classList.remove("pending");
-  summary.textContent = `${plural(n.obligations, "obligation", "obligations")}, ${plural(n.exemptions, "exemption", "exemptions")}, ${n.struck} struck, ${n.unchecked} could not be verified`;
+  summary.textContent = summaryLine(n);
   const badge = $("sample-badge");
   badge.hidden = r.mode !== "sample";
   if (r.mode === "sample") badge.title = `Replay of the recorded run “${r.sample}”`;
   $("results-meta").classList.remove("waiting");
 
-  $("claims").replaceChildren(...claims.map(claimCard));
+  // the answer holds supported, qualified and not-verified lines; set-aside lines get their own section
+  $("claims").replaceChildren(...claims.filter((c) => c.verdict !== "struck").map(claimCard));
+  const setAside = claims.filter((c) => c.verdict === "struck");
+  $("setaside").replaceChildren(...setAside.map(setAsideCard));
+  $("setaside-block").hidden = setAside.length === 0;
   const unanswered = r.draft?.unanswered ?? [];
   fillList("unanswered", "unanswered-block", unanswered.map(plainUnanswered));
   const notes = r.draft?.notes ?? [];
@@ -500,7 +541,8 @@ function showRunning() {
   $("sample-badge").hidden = true;
   $("run-error").hidden = true;
   $("claims").replaceChildren();
-  for (const id of ["unanswered-block", "notes-block"]) $(id).hidden = true;
+  $("setaside").replaceChildren();
+  for (const id of ["setaside-block", "unanswered-block", "notes-block"]) $(id).hidden = true;
   $("working").hidden = true;
   $("working").open = false;
   progress.hidden = false;
@@ -603,19 +645,34 @@ async function startRun(event) {
 /* ------------------------------------------------------------------ drawer */
 
 /**
- * Statute text as paragraphs: a new paragraph at each subsection "(1)", "(2)" that starts a sentence,
- * and an indented one at each list item "(a)", "(b)" after a colon or semicolon. A cross-reference
- * such as "subsection (1) of this section" stays inline.
+ * Statute text for the drawer: paragraphs at subsections, and nested lists at "(a)" and "(i)" items
+ * where they start a clause (see lawtext.js). Each item's own words sit in a span, so a nested list
+ * stays intact when a term is highlighted.
  */
-function paragraphs(text) {
-  const parts = text.split(/(?<=[.:;—]|^)\s+(?=\((?:\d+[A-Z]?|[a-z]{1,4})\)\s)/);
-  return parts.map((p) => el("p", { className: /^\([a-z]{1,4}\)\s/.test(p) ? "item" : "", text: p }));
+function renderLaw(text) {
+  const out = [];
+  let list1 = null;
+  let list2 = null;
+  for (const b of lawBlocks(text)) {
+    if (b.level === 0) {
+      out.push(el("p", { text: b.text }));
+      list1 = list2 = null;
+    } else if (b.level === 1 || !list1) {
+      if (!list1) out.push((list1 = el("ul", { className: "law-list" })));
+      list1.append(el("li", {}, el("span", { className: "law-item", text: b.text })));
+      list2 = null;
+    } else {
+      if (!list2) list1.lastElementChild.append((list2 = el("ul", { className: "law-list" })));
+      list2.append(el("li", {}, el("span", { className: "law-item", text: b.text })));
+    }
+  }
+  return out;
 }
 
 /** Wraps the first quoted occurrence of `term` in a <mark> and scrolls to it. */
 function highlightTerm(container, term) {
   const re = new RegExp(`["“]${escapeRe(term)}["”]`, "i");
-  for (const p of container.querySelectorAll("p")) {
+  for (const p of container.querySelectorAll("p, .law-item")) {
     const m = re.exec(p.textContent);
     if (!m) continue;
     const full = p.textContent;
@@ -678,7 +735,7 @@ async function openSection(id, term, opener) {
     const s = await res.json();
     if (s.heading) $("drawer-title").textContent = `Section ${s.section_no ?? no}: ${s.heading}`;
     $("drawer-meta").textContent = [s.chapter, s.part].filter(Boolean).map(headingCase).join(" · ");
-    $("drawer-text").replaceChildren(...paragraphs(s.text));
+    $("drawer-text").replaceChildren(...renderLaw(s.text));
     if (term) highlightTerm($("drawer-text"), term);
   } catch {
     $("drawer-meta").textContent = "This section could not be loaded. Try again in a minute.";
