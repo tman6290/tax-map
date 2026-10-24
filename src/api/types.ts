@@ -13,7 +13,10 @@ export interface RunEvent {
   type: "trace" | "verdict" | "status" | "result" | "failed";
   ts: string;
   agent: RunAgent;
+  /** The plain progress line for the business owner; "" for steps that add no line. */
   text: string;
+  /** The technical line for the run log under "See how this answer was produced". */
+  detail?: string;
   data: unknown;
 }
 

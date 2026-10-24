@@ -6,7 +6,7 @@ import express, { type Request, type Response } from "express";
 import { z } from "zod";
 import { corpus } from "../agents/glossary.js";
 import type { CheckedClaim, Profile, TraceStep } from "../agents/types.js";
-import { describeCriticStep, describeResearcherStep, describeVerdict } from "./describe.js";
+import { criticDetail, describeCriticStep, describeHandoff, describeResearcherStep, describeVerdict, handoffDetail, researcherDetail, verdictDetail } from "./describe.js";
 import { getEngines } from "../engines/index.js";
 import { mineRunOutcome, runIngestInput } from "./engine_io.js";
 import { runPipeline } from "./pipeline.js";
@@ -52,16 +52,27 @@ async function startLive(store: RunStore, run: Run, profile: Profile, question: 
   }
 }
 
-function redescribe(e: RunEvent): string {
+const RECORDED_HANDOFF = /^Researcher finished: (\d+) claims from (\d+) sections read(?:, using (\d+) memories from earlier runs)?\. Critic started$/;
+
+/** A recorded event's plain line and technical line, in the current wording. */
+function redescribe(e: RunEvent): { text: string; detail: string } {
   try {
-    if (e.type === "trace" && e.agent === "researcher") return describeResearcherStep(e.data as TraceStep);
-    if (e.type === "trace" && e.agent === "critic") return describeCriticStep(e.data as TraceStep);
-    if (e.type === "verdict") return describeVerdict(e.data as CheckedClaim);
+    if (e.type === "trace" && e.agent === "researcher") return { text: describeResearcherStep(e.data as TraceStep), detail: researcherDetail(e.data as TraceStep) };
+    if (e.type === "trace" && e.agent === "critic") return { text: describeCriticStep(e.data as TraceStep), detail: criticDetail(e.data as TraceStep) };
+    if (e.type === "verdict") return { text: describeVerdict(e.data as CheckedClaim), detail: verdictDetail(e.data as CheckedClaim) };
+    const h = RECORDED_HANDOFF.exec(e.text);
+    if (h) {
+      const [claims, sections, prior] = [Number(h[1]), Number(h[2]), Number(h[3] ?? 0)];
+      return { text: describeHandoff(claims, sections, prior), detail: handoffDetail(claims, sections, prior) };
+    }
   } catch {
     // a step recorded in an older shape: keep its recorded line
   }
-  return e.text;
+  return { text: e.text, detail: e.detail ?? e.text };
 }
+
+/** "24 October 2026" */
+const longDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
 
 /** Replays a recorded run with short delays, without calling any model or Zetaris. */
 async function startSample(store: RunStore, run: Run, profile: Profile): Promise<void> {
@@ -74,15 +85,16 @@ async function startSample(store: RunStore, run: Run, profile: Profile): Promise
     type: "status",
     ts: new Date().toISOString(),
     agent: "system",
-    text: `Sample run: replaying the recorded run "${sample.name}" (recorded ${sample.recorded_at.slice(0, 10)})`,
+    text: `Sample run: replaying an answer recorded on ${longDate(sample.recorded_at)}`,
+    detail: `Sample run: replaying the recorded run "${sample.name}" (recorded ${sample.recorded_at.slice(0, 10)})`,
     data: { sample: sample.name },
   });
   for (const e of sample.events) {
     if (e.type === "result") continue;
     // describe recorded steps with the current wording, so older samples read like live runs
-    const text = redescribe(e);
+    const { text, detail } = redescribe(e);
     if (text) await sleep(sampleDelay()); // silent steps (tool calls) cost no replay time
-    store.emit(run, { type: e.type, ts: new Date().toISOString(), agent: e.agent, text, data: e.data });
+    store.emit(run, { type: e.type, ts: new Date().toISOString(), agent: e.agent, text, detail, data: e.data });
   }
   await sleep(sampleDelay());
   // the engines see the recorded run under a stable id, so replaying it again changes nothing

@@ -141,7 +141,8 @@ describe("POST /api/runs", () => {
 
     const events = await readEvents(run_id);
     expect(events.map((e) => e.event)).toEqual(["status", "trace", "verdict", "result"]);
-    expect(events[0]?.data.text).toMatch(/^Sample run: replaying the recorded run "retail"/);
+    expect(events[0]?.data.text).toMatch(/^Sample run: replaying an answer recorded on \d{1,2} \w+ \d{4}$/);
+    expect(events[0]?.data.detail).toMatch(/^Sample run: replaying the recorded run "retail"/); // the name stays in the run log
     expect(events[3]?.data.data).toMatchObject({ run_id, mode: "sample", sample: "retail", draft: output.draft });
     expect(pipelineMock).not.toHaveBeenCalled();
   });
@@ -211,7 +212,8 @@ describe("reference endpoints", () => {
     const html = await (await fetch(`${base}/`)).text();
     expect(html).toContain("<h1>Tax Map</h1>");
     expect(html).toContain("Tell Tax Map about your business. It reads Nigeria's 2025 tax laws, lists what you owe and what you're exempt from, and shows you the exact section behind every line.");
-    expect(html).toContain("Fill in your business details. Lagos only for now.");
+    expect(html).toContain("Fill in your business details.");
+    expect(html).not.toContain("Lagos only for now");
     expect(html).not.toContain("Example values");
     expect((await fetch(`${base}/help.json`)).status).toBe(200);
   });

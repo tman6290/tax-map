@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { getEngines } from "../engines/index.js";
 import { mineRunOutcome, runIngestInput } from "./engine_io.js";
 import type { Receipt } from "../providers/meterless.js";
-import { describeCriticStep, describeResearcherStep, describeVerdict } from "./describe.js";
+import { criticDetail, describeCriticStep, describeHandoff, describeResearcherStep, describeVerdict, handoffDetail, researcherDetail, verdictDetail } from "./describe.js";
 import type { NewRunEvent, PipelineOutput, QueryRow, ReceiptRow } from "./types.js";
 
 export interface PipelineHooks {
@@ -73,7 +73,8 @@ export async function runPipeline(profile: Profile, question: string, hooks: Pip
   hmem.startRun(runId);
   hooks.onEvent({ type: "status", ts: now(), agent: "system", text: "Researcher started", data: null });
   const res = await research(profile, question, hmem.runMemory(runId, "researcher"), {
-    onTrace: (step) => hooks.onEvent({ type: "trace", ts: step.ts, agent: "researcher", text: describeResearcherStep(step), data: step }),
+    onTrace: (step) =>
+      hooks.onEvent({ type: "trace", ts: step.ts, agent: "researcher", text: describeResearcherStep(step), detail: researcherDetail(step), data: step }),
   });
   const draft: Draft = res.draft;
   const prior = hmem.stats(runId).retrieved_from_prior_runs;
@@ -89,12 +90,13 @@ export async function runPipeline(profile: Profile, question: string, hooks: Pip
     type: "status",
     ts: now(),
     agent: "system",
-    text: `Researcher finished: ${draft.claims.length} claims from ${Object.keys(res.sections_read).length} sections read${prior ? `, using ${prior} memories from earlier runs` : ""}. Critic started`,
+    text: describeHandoff(draft.claims.length, Object.keys(res.sections_read).length, prior),
+    detail: handoffDetail(draft.claims.length, Object.keys(res.sections_read).length, prior),
     data: null,
   });
   const crit = await critique(draft, res.sections_read, profile, world.forRun(runId), {
-    onTrace: (step) => hooks.onEvent({ type: "trace", ts: step.ts, agent: "critic", text: describeCriticStep(step), data: step }),
-    onChecked: (c) => hooks.onEvent({ type: "verdict", ts: now(), agent: "critic", text: describeVerdict(c), data: c }),
+    onTrace: (step) => hooks.onEvent({ type: "trace", ts: step.ts, agent: "critic", text: describeCriticStep(step), detail: criticDetail(step), data: step }),
+    onChecked: (c) => hooks.onEvent({ type: "verdict", ts: now(), agent: "critic", text: describeVerdict(c), detail: verdictDetail(c), data: c }),
   });
   const out = buildOutput(profile, question, res, crit.checked, crit.receipts);
   world.ingestRun(runIngestInput(runId, now(), Object.keys(res.sections_read), draft, crit.checked, res.sections_read));

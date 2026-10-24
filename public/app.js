@@ -24,6 +24,9 @@ const results = $("results");
 
 let actTitles = {};
 let source = null;
+let running = false;
+/** Every event's technical line, for the run log in the disclosure. */
+let runLog = [];
 
 /** Creates an element with optional class and text; children may be nodes or strings. */
 function el(tag, opts = {}, ...children) {
@@ -40,7 +43,7 @@ function el(tag, opts = {}, ...children) {
 const INTERNAL = /meterless|nemotron|nvidia|nightshift|zetaris|http \d{3}|empty_response|provider_error/i;
 
 /**
- * Text shown before "Show working" is for the business owner. Messages from the machinery (model,
+ * Text shown above "See how this answer was produced" is for the business owner. Messages from the machinery (model,
  * gateway or database names, HTTP errors) are replaced with a plain line; the working section keeps
  * the technical detail.
  */
@@ -48,7 +51,7 @@ function plain(text, fallback) {
   return INTERNAL.test(text) ? fallback : text;
 }
 const STEP_FAILED = "One background step did not complete, so the answer was kept as it stood before that step.";
-const RUN_FAILED = "The run could not finish because a service it depends on was unavailable. Please try again in a minute.";
+const RUN_FAILED = "Something went wrong on our side. Try again in a minute.";
 
 /* ------------------------------------------------------------------ help tooltips */
 
@@ -96,11 +99,14 @@ function helpButton(keys) {
   if (!entries.length) return null;
   const id = `help-tip-${++helpCount}`;
   const wrap = el("span", { className: "help" });
-  const btn = el("button", {
-    className: "help-btn",
-    text: "?",
-    attrs: { type: "button", "aria-label": `What is ${entries.map((e) => e.title).join(", ")}?`, "aria-expanded": "false", "aria-describedby": id },
-  });
+  const btn = el(
+    "button",
+    {
+      className: "help-btn",
+      attrs: { type: "button", "aria-label": `What is ${entries.map((e) => e.title).join(", ")}?`, "aria-expanded": "false", "aria-describedby": id },
+    },
+    el("span", { className: "q", attrs: { "aria-hidden": "true" } }), // the "?" is drawn by CSS
+  );
   const tip = el("span", { className: "help-tip", attrs: { id, role: "tooltip" } });
   tip.hidden = true;
   for (const e of entries) {
@@ -113,7 +119,7 @@ function helpButton(keys) {
       open.addEventListener("click", (ev) => {
         ev.stopPropagation();
         setHelp(wrap, false);
-        openSectionHandler(sid, e.term);
+        openSectionHandler(sid, e.term, btn);
       });
       part.append(" ", open);
     }
@@ -167,14 +173,18 @@ function attachHelpSlots(root = document) {
 
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+/** Terms already marked in this result: each term is marked once on the page, at its first mention. */
+const markedTerms = new Set();
+
 /**
  * Text with a help button after the first mention of each glossary term whose `annotate` is `scope`
- * ("text" for claim text, "summary" for the result line). Longest phrases win; mentions don't overlap.
+ * ("text" for claim text), skipping terms already marked elsewhere on the page (`markedTerms`).
+ * Longest phrases win; mentions don't overlap.
  */
 function annotated(text, scope) {
   const hits = [];
   for (const [key, e] of Object.entries(helpTerms)) {
-    if (e.annotate !== scope) continue;
+    if (e.annotate !== scope || markedTerms.has(key)) continue;
     const phrases = [...(e.match ?? [])].sort((a, b) => b.length - a.length);
     if (!phrases.length) continue;
     const re = new RegExp(`(?<![A-Za-z0-9])(?:${phrases.map(escapeRe).join("|")})(?![A-Za-z0-9])`, "i");
@@ -189,6 +199,7 @@ function annotated(text, scope) {
     frag.append(text.slice(at, h.end));
     const b = helpButton([h.key]);
     if (b) frag.append(b);
+    markedTerms.add(h.key);
     at = h.end;
   }
   frag.append(text.slice(at));
@@ -221,7 +232,7 @@ function readForm() {
   };
   const problems = [];
   if (!profile.sector) problems.push("Enter the sector.");
-  if (!profile.lga) problems.push("Enter the Local Government Area.");
+  if (!profile.lga) problems.push("Enter the local government area.");
   if (!Number.isInteger(employees) || employees < 0) problems.push("Employees must be a whole number, 0 or more.");
   if (f.question.value.trim().length < 3) problems.push("Enter a question.");
   return { profile, question: f.question.value.trim(), problems };
@@ -249,12 +260,37 @@ function citation(sectionIds) {
   return [...byAct].map(([act, nos]) => `${actName(act)}, ${nos.map((n) => `s. ${n}`).join(", ")}`).join("; ");
 }
 
+const SMALL_WORDS = new Set(["of", "and", "the", "on", "or", "for", "in", "to", "a", "an", "by", "with", "from", "at"]);
+const KEEP_CAPS = /^(?:VAT|PAYE|[IVXLC]+)$/;
+
+/** "CHAPTER SIX – VALUE ADDED TAX" -> "Chapter Six – Value Added Tax" (the Acts set these headings in capitals). */
+function headingCase(text) {
+  if (text !== text.toUpperCase()) return text;
+  return text
+    .split(/(\s+)/)
+    .map((w, i) => {
+      if (/^\s+$/.test(w) || KEEP_CAPS.test(w)) return w;
+      const lower = w.toLowerCase();
+      if (i > 0 && SMALL_WORDS.has(lower)) return lower;
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join("");
+}
+
 /* ------------------------------------------------------------------ progress */
 
+/** One plain line in the progress panel; events with no plain line add nothing. */
 function addProgress(text, agent) {
+  if (!text) return;
   const li = el("li", { className: `agent-${agent}`, text: plain(text, STEP_FAILED) });
   progressList.append(li);
   progressList.scrollTop = progressList.scrollHeight;
+}
+
+/** Keeps the event's technical line for the run log. */
+function logEvent(ev) {
+  const line = ev.detail || ev.text;
+  if (line) runLog.push(line);
 }
 
 /* ------------------------------------------------------------------ results */
@@ -266,67 +302,86 @@ const VERDICT_LABEL = {
   unchecked: "Not verified",
 };
 
-function openLawLinks(sectionIds) {
-  const row = el("p", { className: "open-law" });
+/**
+ * The citation and the way into the law. One section: its citation, then "Open the law ›". Several:
+ * "Open the law:" with each section's citation as its own link, so no citation is printed twice.
+ */
+function citationParts(sectionIds) {
   const mk = (id, label) => {
-    const b = el("button", { className: "link-button", text: label, attrs: { type: "button", title: citation([id]) } });
-    b.addEventListener("click", () => openSection(id));
+    const b = el("button", { className: "link-button", text: label, attrs: { type: "button", "aria-label": `Open ${citation([id])}` } });
+    b.addEventListener("click", (e) => openSection(id, undefined, e.currentTarget));
     return b;
   };
   if (sectionIds.length === 1) {
-    row.append(mk(sectionIds[0], "Open the law ›"));
-  } else {
-    row.append("Open the law: ");
-    sectionIds.forEach((id, i) => {
-      if (i) row.append(" · ");
-      row.append(mk(id, citation([id])));
-    });
+    return [el("span", { className: "citation", text: citation(sectionIds) }), el("span", { className: "open-law" }, mk(sectionIds[0], "Open the law ›"))];
   }
-  return row;
+  const links = el("span", { className: "open-law" }, "Open the law: ");
+  sectionIds.forEach((id, i) => {
+    if (i) links.append(" · ");
+    links.append(mk(id, citation([id])));
+  });
+  return [links];
+}
+
+/** At most four defined terms for a card, the ones that appear in the claim text first. */
+function definitionsFor(c) {
+  const text = c.claim.text.toLowerCase();
+  const inClaim = (d) => new RegExp(`(?<![a-z0-9])${escapeRe(d.term.toLowerCase())}(?![a-z0-9])`).test(text);
+  const defs = c.definitions ?? [];
+  return [...defs.filter(inClaim), ...defs.filter((d) => !inClaim(d))].slice(0, 4);
+}
+
+/** The Critic's merge reason in recorded runs ("no piece supports the claim") in the words it uses now. */
+function plainReason(reason) {
+  return /^no piece supports the claim$/i.test(reason ?? "") ? "None of the cited sections, read in full, supports this line." : plain(reason ?? "", STEP_FAILED);
 }
 
 function claimCard(c) {
   const v = c.verdict;
   const card = el("article", { className: `claim v-${v}` });
 
-  // 1. the claim text, 2. the citation, 3. the way into the law
+  // the claim text, then one row: verdict, type, citation, the way into the law.
+  // The labels are explained once, in the panel behind "What do these labels mean?"
   const text = el("p", { className: "claim-text" });
-  if (v === "struck") text.append(el("span", { className: "visually-hidden", text: "Rejected: " }));
   text.append(annotated(c.claim.text, "text"));
-  card.append(text, el("p", { className: "citation", text: citation(c.claim.section_ids) }), openLawLinks(c.claim.section_ids));
-
-  // verdict and type, each with its explanation
-  const meta = el("div", { className: "claim-meta" });
-  const chip = el("span", { className: "chip-group" }, el("span", { className: `chip v-${v}`, text: VERDICT_LABEL[v] ?? v }), helpButton([v]));
   const kind = c.claim.type === "exemption" ? "exemption" : "obligation";
-  const type = el("span", { className: "chip-group" }, el("span", { className: "claim-type", text: kind === "exemption" ? "Exemption" : "Obligation" }), helpButton([kind]));
-  meta.append(chip, type);
-  card.append(meta);
+  card.append(
+    text,
+    el(
+      "div",
+      { className: "claim-meta" },
+      el("span", { className: `chip v-${v}`, text: VERDICT_LABEL[v] ?? v }),
+      el("span", { className: "claim-type", text: kind === "exemption" ? "Exemption" : "Obligation" }),
+      ...citationParts(c.claim.section_ids),
+    ),
+  );
 
-  // the quote and the reasoning
-  const more = el("details", { className: "claim-more" }, el("summary", { text: "Show the quote and why" }));
+  // the quote and the reasoning; a rejected line shows its reason up front, since the reason is the point
+  const more = el("details", { className: "claim-more" }, el("summary", { text: v === "struck" ? "Hide the quote and why" : "Show the quote and why" }));
+  more.open = v === "struck";
+  more.addEventListener("toggle", () => {
+    more.querySelector("summary").textContent = `${more.open ? "Hide" : "Show"} the quote and why`;
+  });
   const body = el("div", { className: "claim-body" });
   body.append(el("h4", { text: "Quote from the law" }));
   if (c.quote && c.quote_verified) body.append(el("blockquote", { text: c.quote }));
   else body.append(el("p", { className: "unverified", text: c.quote ? "The quote could not be found in the cited text." : "No quote: the cited text does not establish this claim." }));
 
-  body.append(el("h4", { text: "Why" }), el("p", { className: "reason", text: c.reason }));
+  body.append(el("h4", { text: "Why" }), el("p", { className: "reason", text: plainReason(c.reason) }));
   if (c.qualifier) body.append(el("h4", { text: "Condition" }), el("p", { className: "qualifier", text: c.qualifier }));
 
-  const defs = c.definitions ?? [];
+  const defs = definitionsFor(c);
   if (defs.length) {
-    const byId = new Map();
-    for (const d of defs) byId.set(d.section_id, [...(byId.get(d.section_id) ?? []), d.term]);
     const ul = el("ul", { className: "plain-list compact" });
-    for (const [id, terms] of byId) ul.append(el("li", { text: `${citation([id])}: ${terms.map((t) => `“${t}”`).join(", ")}` }));
-    body.append(el("h4", { text: "Terms the law defines" }), ul);
+    for (const d of defs) ul.append(el("li", { text: `“${d.term}” (${citation([d.section_id])})` }));
+    body.append(el("h4", { text: "Defined in the law" }), ul);
   }
   more.append(body);
   card.append(more);
   return card;
 }
 
-/** Housekeeping notes the agent writes about its own filtering: shown under Show working, not as advice. */
+/** Housekeeping notes the agent writes about its own filtering: shown in the disclosure, not as advice. */
 const AGENT_NOTE = /^(?:Removed \d+ note|Dropped (?:section_ids|claims)|Cited but not read|Coverage revision|Used the draft|Kept the draft|Model reply could not be parsed|Stopped after)/;
 
 function fillList(listId, blockId, items) {
@@ -335,7 +390,15 @@ function fillList(listId, blockId, items) {
   $(blockId).hidden = items.length === 0;
 }
 
+/** The agent's checklist results ("Checklist (c) Employer obligations: no claim after a targeted search of ...") in plain words. */
+const CHECKLIST_RE = /^Checklist \([a-f]\) (.+?): (?:no claim after a targeted search of .*|not searched in a targeted turn.*)$/;
+function plainUnanswered(item) {
+  const m = CHECKLIST_RE.exec(item);
+  return m ? `${m[1]}: the check could not confirm this from the Acts.` : item;
+}
+
 function renderResult(r) {
+  markedTerms.clear();
   const claims = r.checked ?? [];
   const ok = (c) => c.verdict === "supported" || c.verdict === "qualified";
   const n = {
@@ -346,23 +409,23 @@ function renderResult(r) {
   };
   const plural = (k, one, many) => `${k} ${k === 1 ? one : many}`;
   const summary = $("summary");
-  summary.replaceChildren(
-    annotated(
-      `${plural(n.obligations, "obligation", "obligations")}, ${plural(n.exemptions, "exemption", "exemptions")}, ${n.struck} struck, ${n.unchecked} could not be verified`,
-      "summary",
-    ),
-  );
-  if (r.mode === "sample") summary.append(el("span", { className: "badge", text: "Sample run", attrs: { title: `Replay of the recorded run “${r.sample}”` } }));
+  summary.classList.remove("pending");
+  summary.textContent = `${plural(n.obligations, "obligation", "obligations")}, ${plural(n.exemptions, "exemption", "exemptions")}, ${n.struck} struck, ${n.unchecked} could not be verified`;
+  const badge = $("sample-badge");
+  badge.hidden = r.mode !== "sample";
+  if (r.mode === "sample") badge.title = `Replay of the recorded run “${r.sample}”`;
+  $("results-meta").classList.remove("waiting");
 
   $("claims").replaceChildren(...claims.map(claimCard));
-  fillList("unanswered", "unanswered-block", r.draft?.unanswered ?? []);
+  const unanswered = r.draft?.unanswered ?? [];
+  fillList("unanswered", "unanswered-block", unanswered.map(plainUnanswered));
   const notes = r.draft?.notes ?? [];
   fillList("notes", "notes-block", notes.filter((n) => !AGENT_NOTE.test(n) && !INTERNAL.test(n)));
-  const agentNotes = notes.filter((n) => AGENT_NOTE.test(n) || INTERNAL.test(n));
+  const agentNotes = [...notes.filter((n) => AGENT_NOTE.test(n) || INTERNAL.test(n)), ...unanswered.filter((u) => CHECKLIST_RE.test(u))];
   $("agent-notes").replaceChildren(...agentNotes.map((t) => el("li", { text: t })));
   $("agent-notes-block").hidden = agentNotes.length === 0;
 
-  // Show working stays technical
+  // the disclosure stays technical
   $("queries").replaceChildren(
     ...(r.queries ?? []).map((q) =>
       el("li", {}, `${q.row_count} ${q.row_count === 1 ? "row" : "rows"}${q.error ? ` (rejected: ${q.error})` : ""}`, el("code", { className: "sql", text: q.sql })),
@@ -371,7 +434,7 @@ function renderResult(r) {
   $("sections-read").replaceChildren(
     ...(r.sections_read ?? []).map((s) => {
       const b = el("button", { className: "link-button", text: s.section_id, attrs: { type: "button" } });
-      b.addEventListener("click", () => openSection(s.section_id));
+      b.addEventListener("click", (e) => openSection(s.section_id, undefined, e.currentTarget));
       return el("li", {}, b, s.heading ? ` ${s.heading}` : "");
     }),
   );
@@ -384,7 +447,7 @@ function renderResult(r) {
         "tr",
         {},
         el("td", { className: "num", text: String(x.call) }),
-        el("td", { text: x.agent }),
+        el("td", { text: x.agent.charAt(0).toUpperCase() + x.agent.slice(1) }),
         el("td", {}, el("code", { text: x.requested_model })),
         el("td", {}, el("code", { text: x.routed_model })),
         el("td", { text: [x.provider, x.label].filter(Boolean).join(" · ") }),
@@ -409,11 +472,65 @@ function renderResult(r) {
     `${t.model_calls ?? 0} model calls, ${t.signed_receipts ?? 0} signed receipts, ` +
     `${(t.tokens_in ?? 0).toLocaleString()} tokens in, ${(t.tokens_out ?? 0).toLocaleString()} tokens out.`;
 
+  $("run-log").replaceChildren(...runLog.map((line) => el("li", { text: line })));
+  $("error-block").hidden = true;
+  progress.hidden = true;
+  $("working").hidden = false;
+  syncWorking();
+  results.hidden = false;
+}
+
+/** Hides the disclosure's sections that have nothing to show (an error leaves most of them empty). */
+function syncWorking() {
+  for (const sec of document.querySelectorAll("#working .wsec")) {
+    if (sec.id === "error-block" || sec.id === "agent-notes-block") continue;
+    const content = sec.querySelector("ol, ul, dl, tbody, p");
+    sec.hidden = !content || (content.children.length === 0 && !content.textContent.trim());
+  }
+}
+
+/** Results area while a run works: the summary keeps its place and the progress list sits below it. */
+function showRunning() {
+  runLog = [];
+  progressList.replaceChildren();
+  const summary = $("summary");
+  summary.classList.add("pending");
+  summary.textContent = "Working on your answer…";
+  $("results-meta").classList.add("waiting");
+  $("sample-badge").hidden = true;
+  $("run-error").hidden = true;
+  $("claims").replaceChildren();
+  for (const id of ["unanswered-block", "notes-block"]) $(id).hidden = true;
+  $("working").hidden = true;
+  $("working").open = false;
+  progress.hidden = false;
+  results.hidden = false;
+}
+
+/** The run failed: one plain message on the page; the technical detail goes under the disclosure. */
+function showFailure(detail) {
+  const summary = $("summary");
+  summary.classList.remove("pending");
+  summary.textContent = "No answer this time.";
+  $("run-error").hidden = false;
+  progress.hidden = true;
+  $("error-detail").textContent = detail;
+  $("error-block").hidden = false;
+  $("run-log").replaceChildren(...runLog.map((line) => el("li", { text: line })));
+  for (const id of ["queries", "sections-read", "definitions", "agent-notes"]) $(id).replaceChildren();
+  $("receipts").tBodies[0].replaceChildren();
+  $("memory-line").textContent = "";
+  $("totals").textContent = "";
+  $("agent-notes-block").hidden = true;
+  $("working").hidden = false;
+  syncWorking();
   results.hidden = false;
 }
 
 function finish() {
+  running = false;
   runButton.disabled = false;
+  runButton.removeAttribute("aria-busy");
   runButton.textContent = "Run again";
   source?.close();
   source = null;
@@ -421,18 +538,18 @@ function finish() {
 
 async function startRun(event) {
   event.preventDefault();
+  if (running) return; // one run at a time: Enter in a field cannot submit twice
   const { profile, question, problems } = readForm();
   formError.hidden = problems.length === 0;
   formError.textContent = problems.join(" ");
   if (problems.length) return;
 
+  running = true;
   runButton.disabled = true;
+  runButton.setAttribute("aria-busy", "true");
   runButton.textContent = "Running…";
-  progressList.replaceChildren();
   $("how").hidden = true; // the explainer is for before the first run
-  progress.hidden = false;
-  results.hidden = true;
-  $("working").open = false;
+  showRunning();
 
   let runId;
   try {
@@ -441,7 +558,7 @@ async function startRun(event) {
     if (!res.ok) throw new Error((body.issues ?? [body.error]).join("; "));
     runId = body.run_id;
   } catch (err) {
-    addProgress(`Could not start the run: ${err.message}`, "system");
+    showFailure(`Could not start the run: ${err.message}`);
     finish();
     return;
   }
@@ -450,7 +567,8 @@ async function startRun(event) {
   source = new EventSource(`/api/runs/${runId}/events`);
   const onStep = (e) => {
     const ev = JSON.parse(e.data);
-    if (ev.text) addProgress(ev.text, ev.agent); // tool calls are folded into their result's line
+    logEvent(ev);
+    addProgress(ev.text, ev.agent); // tool calls are folded into their result's line
   };
   source.addEventListener("status", onStep);
   source.addEventListener("trace", onStep);
@@ -458,15 +576,16 @@ async function startRun(event) {
   source.addEventListener("result", (e) => {
     done = true;
     const ev = JSON.parse(e.data);
-    const li = el("li", { className: "agent-system done", text: "Done." });
-    progressList.append(li);
+    // the technical log moves into the disclosure; nothing technical stays above the answer
     renderResult(ev.data);
     finish();
     $("summary").scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  source.addEventListener("failed", () => {
+  source.addEventListener("failed", (e) => {
     done = true;
-    addProgress(RUN_FAILED, "system");
+    const ev = JSON.parse(e.data);
+    logEvent(ev);
+    showFailure(ev.detail || ev.data?.error || ev.text);
     finish();
   });
   source.onerror = async () => {
@@ -474,21 +593,23 @@ async function startRun(event) {
     // the stream dropped: fall back to the stored result if the run has finished
     source?.close();
     const res = await fetch(`/api/runs/${runId}`).catch(() => null);
-    if (res?.status === 200) {
-      renderResult(await res.json());
-      finish();
-    } else {
-      addProgress("Lost the connection to the server while the run was in progress.", "system");
-      finish();
-    }
+    const body = res?.status === 200 ? await res.json().catch(() => null) : null;
+    if (body?.checked) renderResult(body);
+    else showFailure(`The event stream closed before the run finished (GET /api/runs/${runId}: ${res ? `HTTP ${res.status}` : "no response"}).`);
+    finish();
   };
 }
 
 /* ------------------------------------------------------------------ drawer */
 
-/** Splits statute text into paragraphs at its subsection markers "(1)", "(2)", ... */
+/**
+ * Statute text as paragraphs: a new paragraph at each subsection "(1)", "(2)" that starts a sentence,
+ * and an indented one at each list item "(a)", "(b)" after a colon or semicolon. A cross-reference
+ * such as "subsection (1) of this section" stays inline.
+ */
 function paragraphs(text) {
-  return text.split(/\s(?=\(\d+\)\s)/).map((p) => el("p", { text: p }));
+  const parts = text.split(/(?<=[.:;—]|^)\s+(?=\((?:\d+[A-Z]?|[a-z]{1,4})\)\s)/);
+  return parts.map((p) => el("p", { className: /^\([a-z]{1,4}\)\s/.test(p) ? "item" : "", text: p }));
 }
 
 /** Wraps the first quoted occurrence of `term` in a <mark> and scrolls to it. */
@@ -505,29 +626,82 @@ function highlightTerm(container, term) {
   }
 }
 
-async function openSection(id, term) {
+/** Keeps Tab and Shift+Tab inside an open modal dialog, and returns focus to the opener on close. */
+function holdFocus(dialog) {
+  dialog.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const items = [...dialog.querySelectorAll("button, [href], input, select, textarea, summary, [tabindex]:not([tabindex='-1'])")].filter(
+      (n) => !n.disabled && n.offsetParent !== null,
+    );
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && (document.activeElement === first || !dialog.contains(document.activeElement))) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  });
+  dialog.addEventListener("close", () => {
+    const back = dialog.returnTo;
+    dialog.returnTo = null;
+    if (back?.isConnected) back.focus();
+  });
+  // a click on the backdrop (outside the dialog box) closes it
+  dialog.addEventListener("click", (e) => {
+    if (e.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    const inside = e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+    if (!inside) dialog.close();
+  });
+}
+
+function openDialog(dialog, opener) {
+  if (dialog.open) return;
+  dialog.returnTo = opener ?? document.activeElement;
+  dialog.showModal();
+}
+
+async function openSection(id, term, opener) {
   const drawer = $("drawer");
-  $("drawer-title").textContent = citation([id]);
+  const { act, no } = splitId(id);
+  $("drawer-act").textContent = actName(act);
+  $("drawer-title").textContent = no ? `Section ${no}` : id;
   $("drawer-meta").textContent = "Loading…";
   $("drawer-text").replaceChildren();
-  if (!drawer.open) drawer.showModal();
+  openDialog(drawer, opener);
   try {
     const res = await fetch(`/api/sections/${encodeURIComponent(id)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const s = await res.json();
-    $("drawer-meta").textContent = [s.heading, s.chapter, s.part].filter(Boolean).join(" · ");
+    if (s.heading) $("drawer-title").textContent = `Section ${s.section_no ?? no}: ${s.heading}`;
+    $("drawer-meta").textContent = [s.chapter, s.part].filter(Boolean).map(headingCase).join(" · ");
     $("drawer-text").replaceChildren(...paragraphs(s.text));
     if (term) highlightTerm($("drawer-text"), term);
-  } catch (err) {
-    $("drawer-meta").textContent = `Could not load ${id}: ${err.message}`;
+  } catch {
+    $("drawer-meta").textContent = "This section could not be loaded. Try again in a minute.";
   }
 }
 openSectionHandler = openSection;
 
-$("drawer-close").addEventListener("click", () => $("drawer").close());
-$("drawer").addEventListener("click", (e) => {
-  if (e.target === $("drawer")) $("drawer").close(); // click on the backdrop
+/* ------------------------------------------------------------------ labels panel */
+
+function fillLabelsPanel() {
+  const row = (k) => [el("dt", { text: helpTerms[k].title }), el("dd", { text: helpTerms[k].text })];
+  const keep = (ks) => ks.filter((k) => helpTerms[k]);
+  $("labels-verdicts").replaceChildren(...keep(["supported", "qualified", "struck", "unchecked"]).flatMap(row));
+  $("labels-types").replaceChildren(...keep(["obligation", "exemption"]).flatMap(row));
+}
+$("labels-open").addEventListener("click", (e) => {
+  fillLabelsPanel();
+  openDialog($("labels-panel"), e.currentTarget);
 });
+$("labels-close").addEventListener("click", () => $("labels-panel").close());
+$("drawer-close").addEventListener("click", () => $("drawer").close());
+holdFocus($("labels-panel"));
+holdFocus($("drawer"));
 
 /* ------------------------------------------------------------------ start */
 

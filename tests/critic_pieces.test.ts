@@ -132,10 +132,10 @@ describe("mergePieces", () => {
     expect(m).toMatchObject({ verdict: "struck", quote: "shall not apply", quote_verified: true, reason: "[a 2/2] exempt" });
   });
 
-  it("prefers qualified, then verified support, then strikes with 'no piece supports the claim'", () => {
+  it("prefers qualified, then verified support, then strikes with a plain reason", () => {
     expect(mergePieces([piece({}), piece({ verdict: "qualified", qualifier: "threshold", struck_because: null })]).verdict).toBe("qualified");
     expect(mergePieces([piece({}), piece({ verdict: "supported", quote_verified: true, struck_because: null })]).verdict).toBe("supported");
-    expect(mergePieces([piece({}), piece({})])).toMatchObject({ verdict: "struck", reason: "no piece supports the claim" });
+    expect(mergePieces([piece({}), piece({})])).toMatchObject({ verdict: "struck", reason: "None of the cited sections, read in full, supports this line." });
   });
 
   it("applies the no-silent rule: a verified disapplying quote decides even when labelled not_established", () => {

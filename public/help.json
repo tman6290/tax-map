@@ -19,7 +19,7 @@
       "text": "What your business mainly does, for example retail, restaurant, transport or software. Type it in your own words."
     },
     "lga": {
-      "title": "Local Government Area",
+      "title": "Local government area",
       "text": "The local council area where your business operates, for example Ikeja or Surulere. Local rules are not loaded yet, so for now this mainly records where you are."
     },
     "turnover": {
@@ -52,91 +52,127 @@
     },
     "obligation": {
       "title": "Obligation",
-      "text": "Something the law says your business must do or pay.",
-      "match": ["obligations", "obligation"],
-      "annotate": "summary"
+      "text": "Something the law says your business must do or pay."
     },
     "exemption": {
       "title": "Exemption",
-      "text": "A case where the law says a rule does not apply to your business, so you do not have to do or pay it.",
-      "match": ["exemptions", "exemption"],
-      "annotate": "summary"
+      "text": "A case where the law says a rule does not apply to your business, so you do not have to do or pay it."
     },
     "struck": {
-      "title": "Rejected by the check (struck)",
-      "text": "The second agent compared this line with the law's own words and found the text does not support it. It is shown crossed out so you can see what was ruled out.",
-      "match": ["struck"],
-      "annotate": "summary"
+      "title": "Rejected by the check",
+      "text": "The Critic compared this line with the law's own words and found the text does not support it. The summary calls these “struck”. Read the reason to see why."
     },
     "unchecked": {
-      "title": "Not verified (could not be verified)",
-      "text": "The check could not be completed for this line, for example because a step failed. It is not a rejection. Treat the line as unconfirmed.",
-      "match": ["could not be verified"],
-      "annotate": "summary"
+      "title": "Not verified",
+      "text": "The check could not be completed for this line, for example because a step failed. The summary calls these “could not be verified”. It is not a rejection; treat the line as unconfirmed."
     },
     "vat": {
       "title": "VAT",
       "text": "Value Added Tax: a tax added to the price of most goods and services. Businesses collect it from customers and pay it to the government. Whether you must register or charge it can depend on your size. The law defines the details; open the section to read it.",
-      "law": ["NTA-2025-s143"],
-      "match": ["Value Added Tax", "VAT"],
+      "law": [
+        "NTA-2025-s143"
+      ],
+      "match": [
+        "Value Added Tax",
+        "VAT"
+      ],
       "annotate": "text"
     },
     "paye": {
       "title": "PAYE",
       "text": "Pay As You Earn: the system where an employer takes income tax out of staff pay and pays it to the tax authority. The law sets out the employer's duties; open the section to read it.",
-      "law": ["NTAA-2025-s14"],
-      "match": ["Pay As You Earn", "PAYE"],
+      "law": [
+        "NTAA-2025-s14"
+      ],
+      "match": [
+        "Pay As You Earn",
+        "PAYE"
+      ],
       "annotate": "text"
     },
     "tax_id": {
       "title": "Tax ID",
       "text": "Your tax identification number, issued by the tax authority. It is used on tax returns and other tax documents. The law says who must register; open the section to read it.",
-      "law": ["NTAA-2025-s7"],
-      "match": ["Taxpayer Identification Number", "Tax Identification Number", "Tax ID"],
+      "law": [
+        "NTAA-2025-s7"
+      ],
+      "match": [
+        "Taxpayer Identification Number",
+        "Tax Identification Number",
+        "Tax ID"
+      ],
       "annotate": "text"
     },
     "personal_income_tax": {
       "title": "Personal income tax",
       "text": "Income tax charged on a person's income, including profits from a business they own personally. The law defines how it is worked out; open the section to read it.",
-      "law": ["NTA-2025-s3"],
-      "match": ["personal income tax"],
+      "law": [
+        "NTA-2025-s3"
+      ],
+      "match": [
+        "personal income tax"
+      ],
       "annotate": "text"
     },
     "companies_income_tax": {
       "title": "Companies income tax",
       "text": "Income tax charged on the profits of a company, as opposed to a person. The law sets the rules; open the section to read it.",
-      "law": ["NTA-2025-s56"],
-      "match": ["companies income tax", "company income tax"],
+      "law": [
+        "NTA-2025-s56"
+      ],
+      "match": [
+        "companies income tax",
+        "company income tax"
+      ],
       "annotate": "text"
     },
     "development_levy": {
       "title": "Development levy",
       "text": "A levy charged under the Tax Act on the profits of certain companies. Whether it applies depends on the kind and size of business. The law defines this; open the section to read it.",
-      "law": ["NTA-2025-s59"],
-      "match": ["development levy"],
+      "law": [
+        "NTA-2025-s59"
+      ],
+      "match": [
+        "development levy"
+      ],
       "annotate": "text"
     },
     "small_business": {
       "title": "Small business",
       "text": "A size category used by the Tax Administration Act. The law defines it using limits on turnover and fixed assets, with some exceptions. The law defines this; open the section to read it.",
-      "law": ["NTAA-2025-s147"],
+      "law": [
+        "NTAA-2025-s147"
+      ],
       "term": "small business",
-      "match": ["small businesses", "small business"],
+      "match": [
+        "small businesses",
+        "small business"
+      ],
       "annotate": "text"
     },
     "small_company": {
       "title": "Small company",
       "text": "A size category used by the Tax Act. The law defines it using limits on turnover and fixed assets. The law defines this; open the section to read it.",
-      "law": ["NTA-2025-s201"],
+      "law": [
+        "NTA-2025-s201"
+      ],
       "term": "small company",
-      "match": ["small companies", "small company"],
+      "match": [
+        "small companies",
+        "small company"
+      ],
       "annotate": "text"
     },
     "books_of_account": {
       "title": "Books of account",
       "text": "Your business's records of money coming in and going out, such as sales, expenses and invoices, kept so that tax can be worked out. The law says what records must be kept; open the section to read it.",
-      "law": ["NTAA-2025-s31"],
-      "match": ["books of account", "books or records of account"],
+      "law": [
+        "NTAA-2025-s31"
+      ],
+      "match": [
+        "books of account",
+        "books or records of account"
+      ],
       "annotate": "text"
     }
   }

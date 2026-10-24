@@ -277,7 +277,7 @@ export function mergePieces(
   if (pieces.length === 1 && pieces[0]) return pick(pieces[0]);
   return {
     verdict: "struck",
-    reason: "no piece supports the claim",
+    reason: "None of the cited sections, read in full, supports this line.",
     quote: null,
     quote_verified: false,
     qualifier: null,

@@ -59,7 +59,14 @@ export class RunStore {
   fail(run: Run, error: string): void {
     run.status = "failed";
     run.error = error;
-    this.emit(run, { type: "failed", ts: new Date().toISOString(), agent: "system", text: `Run failed: ${error}`, data: { error } });
+    this.emit(run, {
+      type: "failed",
+      ts: new Date().toISOString(),
+      agent: "system",
+      text: "Something went wrong on our side. Try again in a minute.",
+      detail: `Run failed: ${error}`,
+      data: { error },
+    });
   }
 
   /** Calls `listener` for every future event of the run; returns the unsubscribe function. */
