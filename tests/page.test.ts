@@ -119,8 +119,52 @@ describe("page copy", () => {
     const block = /<section class="block" id="setaside-block"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
     expect(text(block)).toContain("Lines we checked and set aside");
     expect(text(block)).toContain("Tax Map drafted these but could not find support for them in the law, so they are not part of your answer.");
-    expect(js).toContain('claims.filter((c) => c.verdict !== "struck").map(claimCard)');
+    expect(js).toContain('const main = claims.filter((c) => c.verdict !== "struck");');
+    expect(js).toContain('$("claims").replaceChildren(...main.map(claimCard));');
     expect(js).toContain('claims.filter((c) => c.verdict === "struck")');
+  });
+
+  it("shows 'Your tax map' above the claim list: three authority columns, chips from the main list only", () => {
+    const at = (needle: string) => html.indexOf(needle);
+    expect(at('id="results-meta"')).toBeLessThan(at('id="taxmap"'));
+    expect(at('id="taxmap"')).toBeLessThan(at('id="claims"'));
+    const strip = /<section id="taxmap"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
+    expect(text(strip)).toContain("Your tax map");
+    expect(text(strip)).toContain("Each line goes to the authority that collects it.");
+
+    // column names and agencies from the profile, through the map keyed by tier
+    const agency = /const AGENCY = \{[\s\S]*?\n\};/.exec(js)?.[0] ?? "";
+    const AGENCY = new Function(`${agency}; return AGENCY;`)() as Record<string, (x?: string) => string>;
+    expect(AGENCY.federal!()).toBe("Nigeria Revenue Service");
+    expect(AGENCY.state!("Lagos")).toBe("Lagos State Internal Revenue Service");
+    expect(AGENCY.lga!("Ikeja")).toBe("Ikeja Local Government");
+    expect(js).toContain('{ tier: "federal", place: "Federal", agency: AGENCY.federal() }');
+    expect(js).toContain("{ tier: \"state\", place: `${state} State`, agency: AGENCY.state(state) }");
+    expect(js).toContain("{ tier: \"lga\", place: `${lga} LGA`, agency: AGENCY.lga(lga) }");
+    expect(js).toContain('const state = profile?.state || "Lagos"');
+    expect(js).toContain("const lga = profile?.lga ||");
+
+    // set-aside claims never appear: the map gets the same list as the main cards
+    expect(js).toMatch(/const main = claims\.filter\(\(c\) => c\.verdict !== "struck"\);\s+renderTaxMap\(main, r\.profile\);/);
+    expect(js).toContain('text: "Being added"');
+    expect(js).toContain("card?.scrollIntoView(");
+    expect(js).toContain("attrs: { id: `claim-${c.claim.id}`, tabindex: \"-1\" }");
+
+    // chips: the plain line's first six words plus "…"
+    const fns = ["const plainLine = (c) => (c.plain_checked && c.claim.plain ? c.claim.plain : \"\");", /function chipWords\(c\) \{[\s\S]*?\n\}/.exec(js)?.[0] ?? ""].join("\n");
+    const chipWords = new Function(`${fns}; return chipWords;`)() as (c: unknown) => string;
+    const c = (plain: string, checked = true) => ({ plain_checked: checked, claim: { plain, text: "The business shall register with the relevant tax authority." } });
+    expect(chipWords(c("You need to register with the tax office and get a Tax ID."))).toBe("You need to register with the…");
+    expect(chipWords(c("You need a Tax ID."))).toBe("You need a Tax ID.");
+    expect(chipWords(c("", false))).toBe("The business shall register with the…"); // no checked plain line: the legal sentence
+
+    // style: verdict colour as the chip's left border; stacks on phones; no icons
+    const css = read("styles.css");
+    expect(css).toMatch(/\.taxmap-cols \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+    expect(css).toMatch(/\.steps,\s*\.taxmap-cols \{\s*grid-template-columns: 1fr;/);
+    for (const v of ["supported", "qualified", "unchecked"]) expect(css).toMatch(new RegExp(`\\.taxmap-chip\\.v-${v} \\{[^}]*border-left-color: var\\(--v-${v}\\)`));
+    expect(css).not.toMatch(/\.taxmap-chip\.v-struck/);
+    expect(strip).not.toMatch(/<svg|<img|icon/i);
   });
 
   it("words the summary as things that apply, exemptions, not verified and set aside, omitting zero clauses", () => {

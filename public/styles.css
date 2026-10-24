@@ -511,6 +511,95 @@ fieldset.yesno {
   font-weight: 600;
 }
 
+/* your tax map: one column per authority, chips in the verdict colours */
+.taxmap {
+  margin-bottom: var(--s4);
+}
+
+.taxmap > h3 {
+  margin: 0 0 var(--s2);
+}
+
+.taxmap-cols {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s2);
+}
+
+.taxmap-col {
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  padding: var(--s2);
+  min-width: 0;
+}
+
+.taxmap-head {
+  font: 400 var(--t-sm) / 1.2 var(--sans);
+  color: var(--muted);
+  margin: 0 0 var(--s2);
+}
+
+.taxmap-place {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.taxmap-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--s1);
+}
+
+.taxmap-chip {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: var(--s1) 12px;
+  text-align: left;
+  font: 400 var(--t-sm) / 1.5 var(--sans);
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--v-unchecked);
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.taxmap-chip:hover {
+  border-color: var(--action);
+  color: var(--action-hover);
+}
+
+.taxmap-chip.v-supported {
+  border-left-color: var(--v-supported);
+}
+
+.taxmap-chip.v-qualified {
+  border-left-color: var(--v-qualified);
+}
+
+.taxmap-chip.v-unchecked {
+  border-left-color: var(--v-unchecked);
+}
+
+.taxmap-empty {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+.taxmap-caption {
+  margin: var(--s1) 0 0;
+  color: var(--muted);
+  font-size: var(--t-sm);
+}
+
+.claim {
+  scroll-margin-top: var(--s2);
+}
+
 .claims {
   display: grid;
   gap: var(--s3);
@@ -611,7 +700,8 @@ fieldset.yesno {
   color: var(--muted);
 }
 
-.citation {
+.citation,
+.collected-by {
   color: var(--muted);
 }
 
@@ -932,7 +1022,8 @@ legend .help-slot {
   margin-left: 4px;
 }
 
-.claim-text .help {
+.claim-text .help,
+.collected-by .help {
   margin-left: 4px;
 }
 
@@ -1013,7 +1104,8 @@ legend .help-slot {
 
 @media (max-width: 640px) {
   .grid,
-  .steps {
+  .steps,
+  .taxmap-cols {
     grid-template-columns: 1fr;
   }
 

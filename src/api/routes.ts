@@ -6,6 +6,7 @@ import express, { type Request, type Response } from "express";
 import { z } from "zod";
 import { corpus } from "../agents/glossary.js";
 import type { CheckedClaim, Profile, TraceStep } from "../agents/types.js";
+import { collectorFor } from "../agents/collector.js";
 import { criticDetail, describeCriticStep, describeHandoff, describeResearcherStep, describeVerdict, handoffDetail, researcherDetail, verdictDetail } from "./describe.js";
 import { getEngines } from "../engines/index.js";
 import { mineRunOutcome, runIngestInput } from "./engine_io.js";
@@ -100,7 +101,8 @@ async function startSample(store: RunStore, run: Run, profile: Profile): Promise
   // the engines see the recorded run under a stable id, so replaying it again changes nothing
   const worldRunId = `sample:${sample.name}`;
   const { hmem, world } = getEngines();
-  const r = sample.result;
+  // a sample recorded before collectors existed gets them now, from the same rules a live run uses
+  const r = { ...sample.result, checked: sample.result.checked.map((c) => (c.collector ? c : { ...c, collector: collectorFor(c.claim, sample.profile) })) };
   hmem.startRun(worldRunId);
   world.ingestRun(runIngestInput(worldRunId, sample.recorded_at, r.sections_read.map((s) => s.section_id), r.draft, r.checked));
   mineRunOutcome(hmem, worldRunId, r.checked);

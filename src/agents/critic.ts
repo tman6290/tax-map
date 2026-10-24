@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { WorldModel } from "../engines/types.js";
 import { chatWithFallback, type ChatMessage, type Receipt } from "../providers/index.js";
+import { collectorFor } from "./collector.js";
 import { corpus, isGlossarySection, matchDefinitions, type CorpusSection, type GlossaryEntry } from "./glossary.js";
 import { PROFILE_HEADER } from "./profile.js";
 import { observedTrace } from "./trace.js";
@@ -48,7 +49,7 @@ export function cleanReason(reason: string): string {
 const PLAIN_CHECK_TIMEOUT_MS = 60_000;
 
 /** A claim's verdict before the definitions and the plain-words check are attached. */
-type Judged = Omit<CheckedClaim, "claim" | "definitions_used" | "definitions" | "plain_checked">;
+type Judged = Omit<CheckedClaim, "claim" | "definitions_used" | "definitions" | "plain_checked" | "collector">;
 
 /** Piece size when a call fails with HTTP 502: a 1,944-character section that failed whole passed in 800-character pieces. */
 const FALLBACK_PIECE_CHARS = 800;
@@ -413,6 +414,7 @@ export async function critique(
       definitions_used: definitionsUsed,
       definitions: defs.map((d) => ({ section_id: d.section_id, term: d.term, definition: d.definition })),
       plain_checked: plainCheck.checked,
+      collector: collectorFor(claim, profile),
     };
     checked.push(done);
     options.onChecked?.(done);

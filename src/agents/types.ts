@@ -1,4 +1,5 @@
 import type { Receipt } from "../providers/meterless.js";
+import type { Collector } from "./collector.js";
 
 export interface Profile {
   business_type: "sole_proprietor" | "company" | "partnership";
@@ -83,6 +84,8 @@ export interface CheckedClaim {
    * page then shows the legal sentence alone.
    */
   plain_checked: boolean;
+  /** Which authority collects the tax this claim is about, and why (src/agents/collector.ts). */
+  collector: Collector;
 }
 
 export interface CritiqueResult {

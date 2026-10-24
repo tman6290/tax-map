@@ -92,12 +92,13 @@ function setHelp(wrap, open, pin) {
 }
 
 /**
- * A small circled "?" that explains one or more terms from help.json. It opens on click, on hover and
+ * A small circled "?" that explains one or more terms from help.json (a key), or a one-off entry
+ * { title, text, law?, label? } built by the page. It opens on click, on hover and
  * on keyboard focus; Escape closes it. The tip is described to assistive technology with
  * aria-describedby. Returns null when none of the keys is in the glossary.
  */
 function helpButton(keys) {
-  const entries = keys.map((k) => ({ key: k, ...helpTerms[k] })).filter((e) => e.title);
+  const entries = keys.map((k) => (typeof k === "object" ? { key: k.title, ...k } : { key: k, ...helpTerms[k] })).filter((e) => e.title);
   if (!entries.length) return null;
   const id = `help-tip-${++helpCount}`;
   const wrap = el("span", { className: "help" });
@@ -105,7 +106,7 @@ function helpButton(keys) {
     "button",
     {
       className: "help-btn",
-      attrs: { type: "button", "aria-label": `What is ${entries.map((e) => e.title).join(", ")}?`, "aria-expanded": "false", "aria-describedby": id },
+      attrs: { type: "button", "aria-label": entries.length === 1 && entries[0].label ? entries[0].label : `What is ${entries.map((e) => e.title).join(", ")}?`, "aria-expanded": "false", "aria-describedby": id },
     },
     el("span", { className: "q", attrs: { "aria-hidden": "true" } }), // the "?" is drawn by CSS
   );
@@ -357,8 +358,21 @@ function claimHead(c) {
   return [el("p", { className: "claim-text", text: plainText }), el("p", { className: "law-label", text: "What the law says" }), legal];
 }
 
-/** One row: verdict, type, citation and the way into the law. The labels are explained once, in the labels panel. */
-function claimMeta(c) {
+/** "Collected by: <authority>", with a help marker whose text is the basis and which opens its section. */
+function collectedBy(c) {
+  const col = c.collector;
+  if (!col) return null;
+  const span = el("span", { className: "collected-by", text: `Collected by: ${col.authority}` });
+  const marker = helpButton([{ title: "Collected by", label: `Why ${col.authority} collects this`, text: col.basis, law: col.section_id ? [col.section_id] : [] }]);
+  if (marker) span.append(marker);
+  return span;
+}
+
+/**
+ * One row: verdict, type, citation, the way into the law and, on a card in the answer, who collects it.
+ * The labels are explained once, in the labels panel.
+ */
+function claimMeta(c, withCollector = false) {
   const v = c.verdict;
   const kind = c.claim.type === "exemption" ? "exemption" : "obligation";
   return el(
@@ -367,6 +381,7 @@ function claimMeta(c) {
     el("span", { className: `chip v-${v}`, text: VERDICT_LABEL[v] ?? v }),
     el("span", { className: "claim-type", text: kind === "exemption" ? "Exemption" : "Obligation" }),
     ...citationParts(c.claim.section_ids),
+    withCollector ? collectedBy(c) : null,
   );
 }
 
@@ -379,8 +394,9 @@ function setAsideCard(c) {
 
 function claimCard(c) {
   const v = c.verdict;
-  const card = el("article", { className: `claim v-${v}` });
-  card.append(...claimHead(c), claimMeta(c));
+  // the tax map's chips scroll to the card and move focus to it
+  const card = el("article", { className: `claim v-${v}`, attrs: { id: `claim-${c.claim.id}`, tabindex: "-1" } });
+  card.append(...claimHead(c), claimMeta(c, true));
 
   // the quote and the reasoning
   const more = el("details", { className: "claim-more" }, el("summary", { text: "Show the quote and why" }));
@@ -422,6 +438,70 @@ function plainUnanswered(item) {
   return m ? `${m[1]}: the check could not confirm this from the Acts.` : item;
 }
 
+/* ------------------------------------------------------------------ your tax map */
+
+/** The authority that collects each tier's taxes: federal by name, the state by state, the LGA by its own name. */
+const AGENCY = {
+  federal: () => "Nigeria Revenue Service",
+  state: (state) => ({ lagos: "Lagos State Internal Revenue Service" })[state.toLowerCase()] ?? `${state} State Internal Revenue Service`,
+  lga: (lga) => `${lga} Local Government`,
+};
+
+/** The first six words of the card's top line, with "…" when there is more. */
+function chipWords(c) {
+  const words = (plainLine(c) || c.claim.text).split(/\s+/).filter(Boolean);
+  return words.length > 6 ? `${words.slice(0, 6).join(" ")}…` : words.join(" ");
+}
+
+/** The tier a claim is placed under: the collecting authority's (collector.tier), else the Act's tier. */
+const tierOf = (c) => c.collector?.tier ?? c.claim.tier ?? "federal";
+
+/**
+ * Three columns, federal, state and LGA, each holding one chip per claim from the main list whose
+ * collector.tier matches (set-aside claims never appear). A chip's title is the collector's basis and
+ * a chip scrolls to its card. An empty column says "Being added".
+ */
+function renderTaxMap(mainClaims, profile) {
+  const state = profile?.state || "Lagos";
+  const lga = profile?.lga || form.elements.lga.value.trim() || "Local";
+  const columns = [
+    { tier: "federal", place: "Federal", agency: AGENCY.federal() },
+    { tier: "state", place: `${state} State`, agency: AGENCY.state(state) },
+    { tier: "lga", place: `${lga} LGA`, agency: AGENCY.lga(lga) },
+  ];
+  $("taxmap-cols").replaceChildren(
+    ...columns.map((col) => {
+      const mine = mainClaims.filter((c) => tierOf(c) === col.tier);
+      const head = el("h4", { className: "taxmap-head" }, el("span", { className: "taxmap-place", text: col.place }), " · ", el("span", { className: "taxmap-agency", text: col.agency }));
+      const body = mine.length
+        ? el(
+            "ul",
+            { className: "taxmap-list" },
+            ...mine.map((c) => {
+              const chip = el("button", {
+                className: `taxmap-chip v-${c.verdict}`,
+                text: chipWords(c),
+                attrs: {
+                  type: "button",
+                  ...(c.collector?.basis ? { title: c.collector.basis } : {}),
+                  "aria-label": `${plainLine(c) || c.claim.text} (${VERDICT_LABEL[c.verdict] ?? c.verdict}). ${c.collector ? `Collected by ${c.collector.authority}. ` : ""}Go to this line.`,
+                },
+              });
+              chip.addEventListener("click", () => {
+                const card = $(`claim-${c.claim.id}`);
+                card?.scrollIntoView({ behavior: "smooth", block: "start" });
+                card?.focus({ preventScroll: true });
+              });
+              return el("li", {}, chip);
+            }),
+          )
+        : el("p", { className: "taxmap-empty", text: "Being added" });
+      return el("section", { className: "taxmap-col", attrs: { "aria-label": `${col.place}, ${col.agency}` } }, head, body);
+    }),
+  );
+  $("taxmap").hidden = false;
+}
+
 /**
  * "4 things apply to you, 1 exemption, 1 could not be verified; 2 lines were set aside after checking".
  * The exemption, not-verified and set-aside clauses appear only when their count is above 0.
@@ -454,7 +534,9 @@ function renderResult(r) {
   $("results-meta").classList.remove("waiting");
 
   // the answer holds supported, qualified and not-verified lines; set-aside lines get their own section
-  $("claims").replaceChildren(...claims.filter((c) => c.verdict !== "struck").map(claimCard));
+  const main = claims.filter((c) => c.verdict !== "struck");
+  renderTaxMap(main, r.profile);
+  $("claims").replaceChildren(...main.map(claimCard));
   const setAside = claims.filter((c) => c.verdict === "struck");
   $("setaside").replaceChildren(...setAside.map(setAsideCard));
   $("setaside-block").hidden = setAside.length === 0;
@@ -542,7 +624,7 @@ function showRunning() {
   $("run-error").hidden = true;
   $("claims").replaceChildren();
   $("setaside").replaceChildren();
-  for (const id of ["setaside-block", "unanswered-block", "notes-block"]) $(id).hidden = true;
+  for (const id of ["taxmap", "setaside-block", "unanswered-block", "notes-block"]) $(id).hidden = true;
   $("working").hidden = true;
   $("working").open = false;
   progress.hidden = false;
