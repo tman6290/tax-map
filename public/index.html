@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Tax Map</title>
+    <meta name="description" content="Tell Tax Map about your business. It reads Nigeria&#39;s 2025 federal tax Acts, lists what you owe and what you&#39;re exempt from, and shows the section behind every line, checked by a second model." />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="masthead">
+      <div class="wrap">
+        <h1>Tax Map</h1>
+        <p class="tagline">Tell Tax Map about your business. It reads Nigeria's 2025 federal tax Acts, lists what you owe and what you're exempt from, and shows the section behind every line, checked by a second model.</p>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <form id="profile-form" class="panel" novalidate>
+        <h2>Your business</h2>
+        <p class="hint">Example values are shown. Change anything that differs for your business.</p>
+
+        <div class="grid">
+          <div class="field">
+            <label for="business_type">Business type</label>
+            <select id="business_type" name="business_type">
+              <option value="sole_proprietor">Sole proprietor</option>
+              <option value="company">Company</option>
+              <option value="partnership">Partnership</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="sector">Sector</label>
+            <input id="sector" name="sector" type="text" autocomplete="off" required maxlength="80" />
+          </div>
+
+          <div class="field">
+            <label for="state">State</label>
+            <input id="state" name="state" type="text" value="Lagos" readonly aria-describedby="state-hint" />
+            <p class="field-hint" id="state-hint">Only Lagos for now.</p>
+          </div>
+
+          <div class="field">
+            <label for="lga">Local Government Area</label>
+            <input id="lga" name="lga" type="text" autocomplete="off" required maxlength="80" />
+          </div>
+
+          <div class="field">
+            <label for="turnover_band">Annual turnover</label>
+            <select id="turnover_band" name="turnover_band">
+              <option value="under_25m">Under ₦25 million</option>
+              <option value="25m_to_100m">₦25 million to ₦100 million</option>
+              <option value="over_100m">Over ₦100 million</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="fixed_assets_band">Total fixed assets</label>
+            <select id="fixed_assets_band" name="fixed_assets_band">
+              <option value="under_250m">Under ₦250 million</option>
+              <option value="over_250m">₦250 million or more</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="employees">Employees</label>
+            <input id="employees" name="employees" type="number" min="0" step="1" inputmode="numeric" required />
+          </div>
+
+          <fieldset class="field yesno">
+            <legend>Business premises</legend>
+            <label><input type="radio" name="has_premises" value="yes" /> Yes</label>
+            <label><input type="radio" name="has_premises" value="no" /> No</label>
+          </fieldset>
+
+          <fieldset class="field yesno">
+            <legend>Signage</legend>
+            <label><input type="radio" name="has_signage" value="yes" /> Yes</label>
+            <label><input type="radio" name="has_signage" value="no" /> No</label>
+          </fieldset>
+        </div>
+
+        <div class="field">
+          <label for="question">Question</label>
+          <textarea id="question" name="question" rows="3" maxlength="500" required></textarea>
+        </div>
+
+        <p class="form-error" id="form-error" role="alert" hidden></p>
+        <button type="submit" id="run-button" class="button">Run</button>
+      </form>
+
+      <section id="how" class="how" aria-labelledby="how-title">
+        <h2 id="how-title">How it works</h2>
+        <ol class="steps">
+          <li>
+            <span class="step-no" aria-hidden="true">1</span>
+            <h3>Reads the Acts</h3>
+            <p>454 sections of the Nigeria Tax Act, Tax Administration Act, Revenue Service Act and Joint Revenue Board Act, queried through Zetaris.</p>
+          </li>
+          <li>
+            <span class="step-no" aria-hidden="true">2</span>
+            <h3>Drafts</h3>
+            <p>A Nemotron researcher agent finds the sections that apply to your profile and must read each one in full before citing it.</p>
+          </li>
+          <li>
+            <span class="step-no" aria-hidden="true">3</span>
+            <h3>Checks</h3>
+            <p>A second Nemotron agent judges every claim against the quoted text and strikes what the text does not support.</p>
+          </li>
+        </ol>
+        <p class="how-note">Every model call carries a signed receipt you can inspect under Show working.</p>
+      </section>
+
+      <section id="progress" class="panel" hidden aria-labelledby="progress-title">
+        <h2 id="progress-title">Working</h2>
+        <ol id="progress-list" class="progress-list" aria-live="polite"></ol>
+      </section>
+
+      <section id="results" hidden aria-labelledby="results-title">
+        <h2 id="results-title" class="visually-hidden">Results</h2>
+        <p class="summary" id="summary"></p>
+        <div id="claims" class="claims"></div>
+
+        <section class="block" id="unanswered-block" hidden>
+          <h3>Not answered</h3>
+          <ul id="unanswered" class="plain-list"></ul>
+        </section>
+
+        <section class="block" id="notes-block" hidden>
+          <h3>Notes</h3>
+          <ul id="notes" class="plain-list"></ul>
+        </section>
+
+        <details class="working" id="working">
+          <summary>Show working</summary>
+          <div class="working-body">
+            <h3>Queries the Researcher ran</h3>
+            <ol id="queries" class="queries"></ol>
+            <h3>Sections read in full</h3>
+            <ul id="sections-read" class="plain-list compact"></ul>
+            <h3>Definitions attached</h3>
+            <dl id="definitions" class="definitions"></dl>
+            <h3>Model calls</h3>
+            <div class="table-scroll">
+              <table id="receipts">
+                <thead>
+                  <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Agent</th>
+                    <th scope="col">Requested model</th>
+                    <th scope="col">Routed model</th>
+                    <th scope="col">Provider</th>
+                    <th scope="col" class="num">Tokens in / out</th>
+                    <th scope="col" class="num">Latency</th>
+                    <th scope="col">Signed</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <p class="totals" id="totals"></p>
+          </div>
+        </details>
+      </section>
+    </main>
+
+    <footer class="wrap footer">
+      <p>Answers cite the 2025 federal Acts only. State and local government obligations are not yet loaded. This is not legal advice.</p>
+    </footer>
+
+    <dialog id="drawer" class="drawer" aria-labelledby="drawer-title">
+      <div class="drawer-head">
+        <h2 id="drawer-title">Section</h2>
+        <button type="button" class="link-button" id="drawer-close">Close ✕</button>
+      </div>
+      <p class="drawer-meta" id="drawer-meta"></p>
+      <div class="drawer-text" id="drawer-text"></div>
+    </dialog>
+
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

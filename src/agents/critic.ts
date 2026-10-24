@@ -6,6 +6,7 @@ import type { WorldModel } from "../engines/types.js";
 import { chatWithFallback, type ChatMessage, type Receipt } from "../providers/index.js";
 import { corpus, isGlossarySection, matchDefinitions, type CorpusSection, type GlossaryEntry } from "./glossary.js";
 import { PROFILE_HEADER } from "./profile.js";
+import { observedTrace } from "./trace.js";
 import type { CheckedClaim, Claim, ClaimType, CritiqueResult, Draft, Profile, SectionRead, TraceStep, Verdict } from "./types.js";
 
 export const CRITIC_APP = "taxmap-critic";
@@ -246,7 +247,7 @@ function decisive(p: PieceResult, type: ClaimType): boolean {
 export function mergePieces(
   pieces: PieceResult[],
   type: ClaimType = "obligation",
-): Omit<CheckedClaim, "claim" | "definitions_used"> {
+): Omit<CheckedClaim, "claim" | "definitions_used" | "definitions"> {
   const pick = (p: PieceResult, verdict: Verdict = p.verdict) => ({
     verdict,
     reason: pieces.length > 1 ? `[${p.label}] ${p.reason}` : p.reason,
@@ -304,15 +305,23 @@ function sectionContext(id: string, read: SectionRead | undefined): CorpusSectio
  * definitions of the terms involved shown first. One model call per section (or per piece of a very
  * long section, or after an HTTP 502), plus at most one correction each. The Critic never adds claims.
  */
+export interface CritiqueOptions {
+  /** Called with each trace step as it is recorded, for live progress. */
+  onTrace?: (step: TraceStep) => void;
+  /** Called with each claim's verdict as soon as it is decided. */
+  onChecked?: (checked: CheckedClaim) => void;
+}
+
 export async function critique(
   draft: Draft,
   sectionsRead: Record<string, SectionRead>,
   profile: Profile,
   world: WorldModel,
+  options: CritiqueOptions = {},
 ): Promise<CritiqueResult> {
   const checked: CheckedClaim[] = [];
   const receipts: Receipt[] = [];
-  const trace: TraceStep[] = [];
+  const trace = observedTrace(options.onTrace);
   const model = process.env.METERLESS_CRITIC_MODEL || DEFAULT_CRITIC_MODEL;
 
   for (const claim of draft.claims) {
@@ -328,7 +337,7 @@ export async function critique(
     const defs = cited.length ? matchDefinitions(claim.text, contexts) : [];
     const definitionsUsed = [...new Set(defs.map((d) => d.section_id))];
 
-    let result: Omit<CheckedClaim, "claim" | "definitions_used">;
+    let result: Omit<CheckedClaim, "claim" | "definitions_used" | "definitions">;
     if (cited.length === 0) {
       // nothing to judge against; cannot happen for drafts from research(), which cites only sections read
       result = {
@@ -355,7 +364,14 @@ export async function critique(
       }
       result = mergePieces(results, claim.type ?? "obligation");
     }
-    checked.push({ claim, ...result, definitions_used: definitionsUsed });
+    const done: CheckedClaim = {
+      claim,
+      ...result,
+      definitions_used: definitionsUsed,
+      definitions: defs.map((d) => ({ section_id: d.section_id, term: d.term, definition: d.definition })),
+    };
+    checked.push(done);
+    options.onChecked?.(done);
 
     for (const id of [...new Set([...claim.section_ids, ...definitionsUsed])]) {
       const s = sectionContext(id, sectionsRead[id]);

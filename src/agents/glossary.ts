@@ -25,6 +25,33 @@ export interface CorpusSection {
 }
 
 const DEFINITION_CHARS = 1_200;
+
+/**
+ * Defined terms too generic to help the Critic ("tax", "Nigeria", "president" ...): they matched almost
+ * every section and crowded out the definitions that decide a claim. They are never attached.
+ */
+export const GENERIC_TERMS = new Set([
+  "tax",
+  "nigeria",
+  "person",
+  "president",
+  "minister",
+  "service",
+  "board",
+  "act",
+  "year",
+  "month",
+  "day",
+  "business",
+]);
+/** Generic unless the claim itself uses the term, in which case it is the operative term. */
+export const CLAIM_ONLY_TERMS = new Set(["company"]);
+
+/** True when `text` uses `term` or its plural ("company" / "companies"). */
+function usesTerm(text: string, term: string): boolean {
+  const stem = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/y$/, "(?:y|ie)");
+  return new RegExp(`(?<![a-z0-9])${stem}s?(?![a-z0-9])`, "i").test(text);
+}
 const MIN_ENTRIES = 3; // fewer quoted-term entries than this and a section is not treated as a glossary
 export const MAX_DEFINITIONS = 8;
 
@@ -146,7 +173,10 @@ export function matchDefinitions(
     ([ta, a], [tb, b]) => a.priority - b.priority || tb.split(" ").length - ta.split(" ").length || a.pos - b.pos,
   );
   const out: GlossaryEntry[] = [];
-  for (const [term] of ranked) {
+  for (const [term, at] of ranked) {
+    if (GENERIC_TERMS.has(term)) continue;
+    // e.g. "company": only when the claim itself turns on it (singular or plural)
+    if (CLAIM_ONLY_TERMS.has(term) && at.priority !== 0 && !usesTerm(claimText, term)) continue;
     const entry = resolveTerm(byTerm.get(term) ?? [], operative.length ? operative : cited);
     if (entry && !out.includes(entry)) out.push(entry);
     if (out.length >= max) break;

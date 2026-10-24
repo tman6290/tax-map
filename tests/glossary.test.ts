@@ -66,13 +66,29 @@ describe("term matching", () => {
     expect(m.find((e) => e.term === "company")?.section_id).toBe("TST-2025-s90"); // Act-wide, not the Part's
   });
 
+  it("never attaches generic terms, and attaches 'company' only when the claim uses it", () => {
+    const generic = buildGlossary([
+      sec({
+        section_id: "TST-2025-s91",
+        act_id: "TST-2025",
+        text: 'In this Act — "tax" includes any levy ; "president" means the President ; "person" includes a company ; "year" means a calendar year ; "taxable person" means a person liable to tax.',
+      }),
+      ACT_DEFS,
+    ]);
+    const op = sec({ section_id: "TST-2025-s12", act_id: "TST-2025", heading: "Duty", text: "Every person shall pay tax each year as the President directs; a company files too." });
+    const terms = (claim: string) => matchDefinitions(claim, [op], generic).map((e) => e.term);
+    expect(terms("A trader must pay.")).toEqual([]); // tax, person, year, president: stoplisted; company: not in the claim
+    expect(terms("Small companies are exempt.")).toEqual(["company"]); // plural counts
+    expect(terms("A taxable person must pay.")).toEqual(["taxable person"]); // claim terms first, longest match
+  });
+
   it("does not match inside other words", () => {
     expect(matchDefinitions("The accompanying goodsheds.", [], g).map((e) => e.term)).toEqual([]);
   });
 
   it("uses a Part-scoped definition for a section in that Part, and caps the count", () => {
     const inPart = sec({ section_id: "TST-2025-s51", act_id: "TST-2025", heading: "Exempt goods", part: "PART IV – EXEMPTIONS", text: "A company may supply goods." });
-    expect(matchDefinitions("x", [inPart], g).find((e) => e.term === "company")?.section_id).toBe("TST-2025-s50");
+    expect(matchDefinitions("The company supplies goods.", [inPart], g).find((e) => e.term === "company")?.section_id).toBe("TST-2025-s50");
     expect(matchDefinitions("company goods supply small company taxable person turnover", [OPERATIVE], g, 2)).toHaveLength(2);
   });
 });

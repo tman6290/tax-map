@@ -8,6 +8,7 @@ import { chat, type ChatMessage, type ChatResult, type Receipt, type ToolCall, t
 import { areaParts, checklistAreas, describeParts, uncoveredAreas, type ChecklistArea } from "./checklist.js";
 import { PROFILE_HEADER } from "./profile.js";
 import { findPart, formatToc, tocEntries } from "./toc.js";
+import { observedTrace } from "./trace.js";
 import type { ClaimType, Draft, Profile, ResearchResult, SectionRead, TraceStep } from "./types.js";
 
 export const MAX_TURNS = 12;
@@ -470,6 +471,8 @@ const now = () => new Date().toISOString();
 export interface ResearchOptions {
   /** Targeted turns for uncovered checklist areas (default true). */
   coverage?: boolean;
+  /** Called with each trace step as it is recorded, for live progress. */
+  onTrace?: (step: TraceStep) => void;
 }
 
 export async function research(
@@ -478,7 +481,7 @@ export async function research(
   memory: RunMemory,
   options: ResearchOptions = {},
 ): Promise<ResearchResult> {
-  const trace: TraceStep[] = [];
+  const trace = observedTrace(options.onTrace);
   const receipts: Receipt[] = [];
   const st: RunState = { seen: new Set(), fetched: new Set(), queries: [], excerpts: new Map() };
   const { seen, fetched } = st;

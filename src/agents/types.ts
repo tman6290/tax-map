@@ -68,6 +68,8 @@ export interface CheckedClaim {
   qualifier: string | null;
   /** Interpretation sections whose definitions were shown to the Critic for this claim. */
   definitions_used: string[];
+  /** The definition entries shown to the Critic: term and its paragraph, by section. */
+  definitions: Array<{ section_id: string; term: string; definition: string }>;
   /** The receipt of the critic call that decided the verdict; null when no call was possible. */
   receipt: Receipt | null;
 }
