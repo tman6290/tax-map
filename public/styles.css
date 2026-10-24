@@ -664,3 +664,7 @@ th.num {
     width: 100%;
   }
 }
+
+.memory-line {
+  margin: 0;
+}

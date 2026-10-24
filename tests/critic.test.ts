@@ -141,7 +141,8 @@ describe("critique", () => {
     const expected = r.checked.flatMap((c) =>
       [...new Set([...c.claim.section_ids, ...c.definitions_used])].map((id) => `${c.claim.id}:${id}:${c.verdict}`),
     );
-    expect(facts.map((f) => `${f.claim_id}:${f.section_id}:${f.verdict}`)).toEqual(expected);
+    // the World Model returns facts ordered by run, claim and section, not insertion order
+    expect(facts.map((f) => `${f.claim_id}:${f.section_id}:${f.verdict}`).sort()).toEqual([...expected].sort());
     expect(expected[0]).toBe("c1:NTA-2025-s147:supported");
     expect(r.checked[1]?.definitions_used).toContain("NTAA-2025-s147"); // "small business" in s22
     const s22Fact = facts.find((f) => f.claim_id === "c2" && f.section_id === "NTAA-2025-s22");

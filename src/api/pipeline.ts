@@ -1,8 +1,9 @@
 import { critique } from "../agents/critic.js";
 import { research } from "../agents/researcher.js";
 import type { CheckedClaim, Draft, Profile, ResearchResult, TraceStep } from "../agents/types.js";
-import { InMemoryRunMemory } from "../engines/hmem/index.js";
-import { InMemoryWorldModel } from "../engines/world_model/index.js";
+import { randomUUID } from "node:crypto";
+import { getEngines } from "../engines/index.js";
+import { mineRunOutcome, runIngestInput } from "./engine_io.js";
 import type { Receipt } from "../providers/meterless.js";
 import { describeCriticStep, describeResearcherStep, describeVerdict } from "./describe.js";
 import type { NewRunEvent, PipelineOutput, QueryRow, ReceiptRow } from "./types.js";
@@ -61,23 +62,43 @@ export function buildOutput(
   };
 }
 
-/** research() then critique(), reporting each step to `hooks` as it happens. */
-export async function runPipeline(profile: Profile, question: string, hooks: PipelineHooks): Promise<PipelineOutput> {
+/**
+ * research() then critique(), reporting each step to `hooks` as it happens. The Researcher reads and
+ * writes H-MEM across runs; the Critic writes facts through the World Model; the finished run is
+ * mined into H-MEM and ingested into the World Model.
+ */
+export async function runPipeline(profile: Profile, question: string, hooks: PipelineHooks, opts: { runId?: string } = {}): Promise<PipelineOutput> {
+  const runId = opts.runId ?? randomUUID();
+  const { hmem, world } = getEngines();
+  hmem.startRun(runId);
   hooks.onEvent({ type: "status", ts: now(), agent: "system", text: "Researcher started", data: null });
-  const res = await research(profile, question, new InMemoryRunMemory(), {
+  const res = await research(profile, question, hmem.runMemory(runId, "researcher"), {
     onTrace: (step) => hooks.onEvent({ type: "trace", ts: step.ts, agent: "researcher", text: describeResearcherStep(step), data: step }),
   });
   const draft: Draft = res.draft;
+  const prior = hmem.stats(runId).retrieved_from_prior_runs;
+  hmem.observe({
+    kind: "node_complete",
+    agentId: "researcher",
+    runId,
+    node: "research",
+    summary: `${draft.claims.length} claims from ${Object.keys(res.sections_read).length} sections read in full`,
+  });
+  hmem.observe({ kind: "handoff", agentId: "researcher", runId, to: "critic", summary: draft.claims.map((c) => `${c.id}: ${c.text}`).join(" | ").slice(0, 500) });
   hooks.onEvent({
     type: "status",
     ts: now(),
     agent: "system",
-    text: `Researcher finished: ${draft.claims.length} claims from ${Object.keys(res.sections_read).length} sections read. Critic started`,
+    text: `Researcher finished: ${draft.claims.length} claims from ${Object.keys(res.sections_read).length} sections read${prior ? `, using ${prior} memories from earlier runs` : ""}. Critic started`,
     data: null,
   });
-  const crit = await critique(draft, res.sections_read, profile, new InMemoryWorldModel(), {
+  const crit = await critique(draft, res.sections_read, profile, world.forRun(runId), {
     onTrace: (step) => hooks.onEvent({ type: "trace", ts: step.ts, agent: "critic", text: describeCriticStep(step), data: step }),
     onChecked: (c) => hooks.onEvent({ type: "verdict", ts: now(), agent: "critic", text: describeVerdict(c), data: c }),
   });
-  return buildOutput(profile, question, res, crit.checked, crit.receipts);
+  const out = buildOutput(profile, question, res, crit.checked, crit.receipts);
+  world.ingestRun(runIngestInput(runId, now(), Object.keys(res.sections_read), draft, crit.checked, res.sections_read));
+  mineRunOutcome(hmem, runId, crit.checked);
+  hmem.endRun(runId);
+  return { ...out, world_run_id: runId, memory: hmem.stats(runId), world: world.stats(runId) };
 }

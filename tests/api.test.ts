@@ -4,12 +4,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PipelineHooks } from "../src/api/pipeline.js";
-import type { PipelineOutput, RunEvent } from "../src/api/types.js";
+import type { PipelineOutput, RunEvent, RunResult } from "../src/api/types.js";
 
 vi.mock("../src/api/pipeline.js", () => ({ runPipeline: vi.fn() }));
 
 const { runPipeline } = await import("../src/api/pipeline.js");
 const { app } = await import("../src/server.js");
+const { resetEngines } = await import("../src/engines/index.js");
 const pipelineMock = vi.mocked(runPipeline);
 
 const profile = {
@@ -51,6 +52,9 @@ afterAll(() => {
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "taxmap-api-"));
   vi.stubEnv("RUNS_DIR", join(dir, "runs"));
+  // the engines write into the temp directory, never data/ or logs/
+  for (const [k, sub] of [["HMEM_DIR", "memory"], ["HMEM_LOG_DIR", "hmem-logs"], ["WM_DIR", "world"], ["WM_LOG_DIR", "world-logs"]]) vi.stubEnv(k!, join(dir, sub!));
+  resetEngines();
   pipelineMock.mockReset();
 });
 afterEach(() => {
@@ -139,6 +143,54 @@ describe("POST /api/runs", () => {
     expect(events.map((e) => e.event)).toEqual(["status", "trace", "verdict", "result"]);
     expect(events[0]?.data.text).toMatch(/^Sample run: replaying the recorded run "retail"/);
     expect(events[3]?.data.data).toMatchObject({ run_id, mode: "sample", sample: "retail", draft: output.draft });
+    expect(pipelineMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("engines in the API", () => {
+  it("a sample replay writes both engines; the result reads verified facts from the World Model; replaying again changes nothing", async () => {
+    const samples = join(dir, "samples");
+    const { mkdirSync } = await import("node:fs");
+    mkdirSync(samples);
+    const checked = [
+      {
+        claim: { id: "c1", type: "exemption", text: "As a small business the shop need not file VAT returns.", section_ids: ["NTAA-2025-s22"], tier: "federal", agency: null },
+        verdict: "supported",
+        reason: "subsection (4)",
+        quote: "The provision of subsection (1) shall not apply to a small business.",
+        quote_verified: true,
+        qualifier: null,
+        definitions_used: ["NTAA-2025-s147"],
+        definitions: [{ section_id: "NTAA-2025-s147", term: "small business", definition: '"small business" means ...' }],
+        receipt: null,
+      },
+    ];
+    const result = { ...output, draft: { ...output.draft, claims: [checked[0]!.claim] }, checked, sections_read: [{ section_id: "NTAA-2025-s22", heading: "Returns for value added tax" }] };
+    writeFileSync(join(samples, "retail.json"), JSON.stringify({ name: "retail", recorded_at: "2026-10-24T00:00:00.000Z", profile, question: "q?", events: [], result }));
+    vi.stubEnv("SAMPLE_MODE", "true");
+    vi.stubEnv("SAMPLES_DIR", samples);
+    vi.stubEnv("SAMPLE_DELAY_MS", "0");
+
+    const replay = async () => {
+      const { run_id } = await (await post({ profile, question: "What do I owe?" })).json();
+      await readEvents(run_id);
+      return (await (await fetch(`${base}/api/runs/${run_id}`)).json()) as RunResult;
+    };
+    const first = await replay();
+    expect(first.world_run_id).toBe("sample:retail");
+    expect(first.world).toMatchObject({ verified_facts_this_run: 1, runs_ingested: 1 });
+    expect(first.memory?.memories_by_layer.long_term).toBe(1); // the Critic-verified fact
+    expect(first.verified_facts).toEqual([expect.objectContaining({ claim_id: "c1", section_id: "NTAA-2025-s22", verdict: "supported" })]);
+
+    const ctx = await (await fetch(`${base}/api/runs/${first.run_id}/claims/c1/context`)).json();
+    expect(ctx).toMatchObject({ schema: "wm.claim_context.v1", claim: { claimId: "c1", verdict: "supported" } });
+    expect(ctx.sections[0].text).toContain("shall not apply to a small business"); // verbatim, from the corpus
+    expect(ctx.definitions[0].term).toBe("small business");
+
+    const second = await replay();
+    expect(second.world).toEqual(first.world); // idempotent ingest
+    expect(readFileSync(join(dir, "world-logs", "events.jsonl"), "utf-8")).toContain('"type":"ingest_skipped"');
+    expect(readFileSync(join(dir, "hmem-logs", "ledger.jsonl"), "utf-8")).toContain('"action":"create"');
     expect(pipelineMock).not.toHaveBeenCalled();
   });
 });

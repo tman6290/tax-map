@@ -7,6 +7,8 @@ import { z } from "zod";
 import { corpus } from "../agents/glossary.js";
 import type { CheckedClaim, Profile, TraceStep } from "../agents/types.js";
 import { describeCriticStep, describeResearcherStep, describeVerdict } from "./describe.js";
+import { getEngines } from "../engines/index.js";
+import { mineRunOutcome, runIngestInput } from "./engine_io.js";
 import { runPipeline } from "./pipeline.js";
 import { RunStore, runsDir, type Run } from "./runs.js";
 import { loadSamples, pickSample } from "./samples.js";
@@ -43,7 +45,7 @@ function actsFile(): string {
 
 async function startLive(store: RunStore, run: Run, profile: Profile, question: string): Promise<void> {
   try {
-    const out = await runPipeline(profile, question, { onEvent: (e) => store.emit(run, e) });
+    const out = await runPipeline(profile, question, { onEvent: (e) => store.emit(run, e) }, { runId: run.id });
     await store.complete(run, { ...out, run_id: run.id, mode: "live", started_at: run.started_at, finished_at: new Date().toISOString() });
   } catch (err) {
     store.fail(run, err instanceof Error ? err.message : String(err));
@@ -83,11 +85,22 @@ async function startSample(store: RunStore, run: Run, profile: Profile): Promise
     store.emit(run, { type: e.type, ts: new Date().toISOString(), agent: e.agent, text, data: e.data });
   }
   await sleep(sampleDelay());
+  // the engines see the recorded run under a stable id, so replaying it again changes nothing
+  const worldRunId = `sample:${sample.name}`;
+  const { hmem, world } = getEngines();
+  const r = sample.result;
+  hmem.startRun(worldRunId);
+  world.ingestRun(runIngestInput(worldRunId, sample.recorded_at, r.sections_read.map((s) => s.section_id), r.draft, r.checked));
+  mineRunOutcome(hmem, worldRunId, r.checked);
+  hmem.endRun(worldRunId);
   await store.complete(run, {
-    ...sample.result,
+    ...r,
     run_id: run.id,
     mode: "sample",
     sample: sample.name,
+    world_run_id: worldRunId,
+    memory: hmem.stats(worldRunId),
+    world: world.stats(worldRunId),
     started_at: run.started_at,
     finished_at: new Date().toISOString(),
   });
@@ -147,11 +160,14 @@ export function createApiRouter(store: RunStore = new RunStore()): express.Route
     });
   });
 
+  /** The stored result plus the run's verified facts, read from the World Model now. */
+  const withFacts = (r: RunResult): RunResult => ({ ...r, verified_facts: getEngines().world.verifiedFacts(r.world_run_id ?? r.run_id) });
+
   router.get("/runs/:id", (req: Request, res: Response) => {
     const id = String(req.params.id);
     const run = store.get(id);
     if (run?.status === "complete" && run.result) {
-      res.json(run.result);
+      res.json(withFacts(run.result));
       return;
     }
     if (run?.status === "running") {
@@ -165,10 +181,21 @@ export function createApiRouter(store: RunStore = new RunStore()): express.Route
     // runs from an earlier process are read back from logs/runs
     const file = join(runsDir(), `${id}.json`);
     if (/^[0-9a-f-]{36}$/.test(id) && existsSync(file)) {
-      res.json(JSON.parse(readFileSync(file, "utf-8")) as RunResult);
+      res.json(withFacts(JSON.parse(readFileSync(file, "utf-8")) as RunResult));
       return;
     }
     res.status(404).json({ error: "unknown run" });
+  });
+
+  /** World Model context for one claim of a run: its sections verbatim, definitions, prior verdicts. */
+  router.get("/runs/:id/claims/:claimId/context", (req: Request, res: Response) => {
+    const run = store.get(String(req.params.id));
+    if (!run?.result) {
+      res.status(404).json({ error: "unknown or unfinished run" });
+      return;
+    }
+    const ctx = getEngines().world.context.buildForClaim(run.result.world_run_id ?? run.id, String(req.params.claimId));
+    res.status(ctx.claim ? 200 : 404).json(ctx);
   });
 
   router.get("/acts", (_req, res) => {

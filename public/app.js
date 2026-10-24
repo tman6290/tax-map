@@ -192,6 +192,16 @@ function renderResult(r) {
       ),
     ),
   );
+  const m = r.memory;
+  const w = r.world;
+  $("memory-line").textContent =
+    m && w
+      ? `${m.retrieved_from_prior_runs} ${m.retrieved_from_prior_runs === 1 ? "memory" : "memories"} retrieved from prior runs ` +
+        `(H-MEM holds ${m.memories_by_layer.long_term} long-term, ${m.memories_by_layer.working} working, ${m.memories_by_layer.short_term} short-term). ` +
+        `The World Model holds ${w.facts_total} ${w.facts_total === 1 ? "fact" : "facts"} (${w.verified_facts_total} verified) from ${w.runs_ingested} ${w.runs_ingested === 1 ? "run" : "runs"}; ` +
+        `${w.facts_this_run} from this run.`
+      : "Memory figures were not recorded for this run.";
+
   const t = r.totals ?? {};
   $("totals").textContent =
     `${t.model_calls ?? 0} model calls, ${t.signed_receipts ?? 0} signed receipts, ` +

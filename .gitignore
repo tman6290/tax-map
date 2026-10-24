@@ -7,3 +7,6 @@ logs/*
 !logs/.gitkeep
 .cursor/
 .claude/
+data/memory/*
+!data/memory/.gitkeep
+data/world_model/

@@ -11,7 +11,8 @@
     "start": "node dist/server.js",
     "dev": "tsx src/server.ts",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "conformance": "tsx scripts/conformance.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

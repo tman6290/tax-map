@@ -307,12 +307,15 @@ function alreadyFound(entries: ScoredMemoryEntry[], st: RunState, turn: number, 
     "Already found (summary of earlier tool results; they are not repeated in full):",
   ];
   for (const e of entries) {
-    const c = e.content as MemoryContent;
+    const c = e.content as Partial<MemoryContent>;
+    if (!Array.isArray(c.sections)) continue; // not a tool-result summary
     const secs = c.sections
       .slice(0, 15)
       .map((s) => (s.heading ? `${s.section_id} (${s.heading})` : s.section_id))
       .join("; ");
-    lines.push(`- ${c.tool} ${c.label}: ${c.row_count} rows${secs ? `: ${secs}` : ""}`);
+    // H-MEM carries tool results across runs: those sections are known, but must be fetched again to cite
+    const origin = e.origin === "earlier_run" ? " [from an earlier run: fetch again before citing]" : "";
+    lines.push(`- ${c.tool} ${c.label}: ${c.row_count} rows${secs ? `: ${secs}` : ""}${origin}`);
   }
   lines.push(`Section ids seen so far (you may cite only these): ${[...seen].join(", ") || "none"}`);
   lines.push(`Sections already read in full with get_sections: ${[...fetched].join(", ") || "none"}`);

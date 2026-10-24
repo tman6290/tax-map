@@ -13,6 +13,8 @@ export interface Fact {
   reason: string;
   quote: string | null;
   ts: string;
+  /** The run the fact came from (set by the World Model; claim ids are per run). */
+  run_id?: string;
 }
 
 export interface FactFilter {
@@ -35,6 +37,8 @@ export interface MemoryEntry {
 
 export interface ScoredMemoryEntry extends MemoryEntry {
   score: number;
+  /** Whether the memory was written in this run or carried over from an earlier one. */
+  origin?: "this_run" | "earlier_run";
 }
 
 /** Per-run memory the agents write tool results to and read summaries from. */

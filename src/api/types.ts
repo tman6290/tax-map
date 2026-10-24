@@ -1,4 +1,7 @@
 import type { CheckedClaim, Draft, Profile } from "../agents/types.js";
+import type { HMemRunStats } from "../engines/hmem/index.js";
+import type { Fact } from "../engines/types.js";
+import type { WorldRunStats } from "../engines/world_model/index.js";
 import type { Receipt } from "../providers/meterless.js";
 
 export type RunMode = "live" | "sample";
@@ -52,6 +55,14 @@ export interface RunResult {
   definitions: Array<{ section_id: string; term: string; definition: string }>;
   queries: QueryRow[];
   totals: Totals;
+  /** The run id the engines know this run by (a sample replay uses "sample:<name>"). */
+  world_run_id?: string;
+  /** H-MEM figures for the run: what was retrieved from earlier runs, what is stored. */
+  memory?: HMemRunStats;
+  /** World Model figures: facts held overall and from this run. */
+  world?: WorldRunStats;
+  /** Verified facts for this run, read from the World Model when the result is fetched. */
+  verified_facts?: Fact[];
   started_at: string;
   finished_at: string;
 }
