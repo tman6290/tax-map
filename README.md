@@ -91,7 +91,7 @@ Open http://localhost:8080 and press the button. The page replays a recorded liv
 npm run dev
 ```
 
-A live run takes minutes. The Researcher has a 12-turn budget, up to four targeted coverage turns and one read-before-cite revision. The Critic makes about one call per cited section plus a plain-words check per claim.
+A live run takes 4 to 8 minutes; the page shows each step as it happens. Sample mode replays a recorded run in seconds. The Researcher has a 12-turn budget, up to four targeted coverage turns and one read-before-cite revision. The Critic makes about one call per cited section plus a plain-words check per claim.
 
 **CLI scripts** (all live, all need `.env`):
 
@@ -112,7 +112,7 @@ A live run takes minutes. The Researcher has a 12-turn budget, up to four target
 
 **Researcher.** Finds the sections that create obligations or exemptions for the profile and drafts claims tied to them. It works in a loop of up to 12 turns on Nemotron 3.5 Lightning 30B (Lane 1), starting from a map of the Acts built from the parsed sections. Its tools are `browse_part` (list the sections in one Part), `run_sql` (one read-only SELECT over `taxmap.sections` or `taxmap.acts`, 40 rows at most), `get_sections` (full verbatim text of up to 10 sections or Schedule items) and `list_levies` (the 1998 Schedule items one tier may collect). It reads and writes H-MEM notes across runs. It drafts claims (obligation or exemption), each with a legal sentence, a plain-words line, cited sections and the authority the text names. The agent code, not the model, drops any citation the model did not read, and applies the coverage and levy rules above.
 
-**Critic.** Judges every claim against the quoted text only, with no tools. For each cited section it sends the profile, the claim, the definitions the code attached and the section text (split into pieces if long) to Nemotron 3 Ultra 550B (Lane 2) at temperature 0, and gets back a verdict (supported, qualified or struck), a reason and a verbatim quote that the code verifies. It strikes a claim the text does not establish, one the text disapplies for the profile (for example a small-business exemption), and a levy whose subject does not fit the business. After the verdict it runs one short plain-words check per claim. It never adds claims. Verdicts are written to the World Model.
+**Critic.** Judges every claim against the quoted text only, with no tools. For each cited section it sends the profile, the claim, the definitions the code attached and the section text (split into pieces if long) to Nemotron 3 Ultra 550B (Lane 2) at temperature 0, and gets back a verdict (supported, qualified or struck), a reason and a verbatim quote that the code verifies. It strikes a claim the text does not establish, one the text disapplies for the profile (for example a small-business exemption), and a levy whose subject does not fit the business. After the verdict it runs one short plain-words check per claim. Claims are judged four at a time, and one claim's plain-words check runs while the next claim's verdict does; results, receipts and trace steps are returned in the order of the draft. It never adds claims. Verdicts are written to the World Model.
 
 ## AI and Model Usage
 
@@ -199,4 +199,4 @@ npm test
 npm run conformance
 ```
 
-`npm test` runs the whole vitest suite: **232 tests in 22 files, all passing**. `npm run conformance` runs only the conformance suites and prints **H-MEM conformance 7/7, World Model conformance 8/8**. These suites are derived from the Implementation Checklists of the Meterless engine specs; items outside the minimum build are listed by the command and are not counted. `npm run build` (strict TypeScript) and `npm run lint` pass.
+`npm test` runs the whole vitest suite: **236 tests in 23 files, all passing**. `npm run conformance` runs only the conformance suites and prints **H-MEM conformance 7/7, World Model conformance 8/8**. These suites are derived from the Implementation Checklists of the Meterless engine specs; items outside the minimum build are listed by the command and are not counted. `npm run build` (strict TypeScript) and `npm run lint` pass.

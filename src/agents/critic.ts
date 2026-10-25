@@ -369,8 +369,48 @@ function sectionContext(id: string, read: SectionRead | undefined): CorpusSectio
 export interface CritiqueOptions {
   /** Called with each trace step as it is recorded, for live progress. */
   onTrace?: (step: TraceStep) => void;
-  /** Called with each claim's verdict as soon as it is decided. */
+  /** Called with each claim's verdict once it is decided and every earlier claim's has been, so in the order of the draft. */
   onChecked?: (checked: CheckedClaim) => void;
+}
+
+/** Claims judged side by side; the plain-words check of one claim runs while the next claim's verdict does. */
+export const CRITIC_CONCURRENCY = 4;
+
+interface Deferred<T> {
+  promise: Promise<T>;
+  resolve: (v: T) => void;
+  reject: (e: unknown) => void;
+}
+function deferred<T>(): Deferred<T> {
+  let resolve!: (v: T) => void;
+  let reject!: (e: unknown) => void;
+  const promise = new Promise<T>((res, rej) => {
+    resolve = res;
+    reject = rej;
+  });
+  return { promise, resolve, reject };
+}
+
+/** A claim whose verdict is in; its plain-words check is running. */
+interface Verdicted {
+  claim: Claim;
+  result: Judged;
+  defs: GlossaryEntry[];
+  definitionsUsed: string[];
+  collector: Collector;
+  amountStruck: boolean;
+  receipts: Receipt[];
+  trace: TraceStep[];
+  plain: Promise<{ plain: string; checked: boolean }>;
+  plainReceipts: Receipt[];
+  plainTrace: TraceStep[];
+}
+
+/** A claim's final form with the receipts and trace steps of its calls. */
+interface ClaimOutcome {
+  done: CheckedClaim;
+  receipts: Receipt[];
+  trace: TraceStep[];
 }
 
 export async function critique(
@@ -380,12 +420,21 @@ export async function critique(
   world: WorldModel,
   options: CritiqueOptions = {},
 ): Promise<CritiqueResult> {
-  const checked: CheckedClaim[] = [];
-  const receipts: Receipt[] = [];
-  const trace = observedTrace(options.onTrace);
   const model = criticModel();
+  const claims = draft.claims;
+  const outcomes = claims.map(() => deferred<ClaimOutcome>());
+  outcomes.forEach((o) => o.promise.catch(() => undefined)); // a failure is raised once, by the ordered flush
 
-  for (const claim of draft.claims) {
+  /**
+   * The verdict phase of one claim. Its calls, receipts and trace steps go to buffers of their own, so
+   * claims running side by side cannot interleave them. Starts the plain-words check when the verdict is
+   * in and does not wait for it: the worker moves on to the next claim.
+   */
+  async function judgeClaim(claim: Claim): Promise<Verdicted> {
+    const receipts: Receipt[] = [];
+    const trace = observedTrace(options.onTrace);
+    const plainReceipts: Receipt[] = [];
+    const plainTrace = observedTrace(options.onTrace);
     const cited = claim.section_ids
       .map((id) => ({ id, section: sectionsRead[id] }))
       .filter((c): c is { id: string; section: SectionRead } => c.section !== undefined);
@@ -431,9 +480,14 @@ export async function critique(
       }
       result = mergePieces(results, claim.type ?? "obligation");
     }
-    // after the verdict: does the plain-words line say anything the legal sentence does not? A line
-    // struck for its amount keeps no plain line, and a fix may not bring a figure from the levies Act back.
-    let plainCheck = amountStruck ? { plain: "", checked: false } : await checkPlain(claim, model, receipts, trace);
+    const plain = amountStruck ? Promise.resolve({ plain: "", checked: false }) : checkPlain(claim, model, plainReceipts, plainTrace);
+    return { claim, result, defs, definitionsUsed, collector, amountStruck, receipts, trace, plain, plainReceipts, plainTrace };
+  }
+
+  /** The plain-words check is back: the claim's final form. A fix may not bring a figure from the levies Act back. */
+  async function finishClaim(v: Verdicted): Promise<ClaimOutcome> {
+    const { claim, result, defs, definitionsUsed, collector } = v;
+    let plainCheck = await v.plain;
     if (citesLevies(claim) && statesAmount(plainCheck.plain)) plainCheck = { plain: "", checked: false };
     const done: CheckedClaim = {
       claim: { ...claim, plain: plainCheck.plain },
@@ -444,26 +498,55 @@ export async function critique(
       plain_checked: plainCheck.checked,
       collector,
     };
-    checked.push(done);
-    options.onChecked?.(done);
-
-    for (const id of [...new Set([...claim.section_ids, ...definitionsUsed])]) {
-      const s = sectionContext(id, sectionsRead[id]);
-      await world.addFact({
-        section_id: id,
-        act_id: s?.act_id ?? (isItemId(id) ? LEVIES_ACT : id.replace(/-s\d+$/, "")),
-        section_no: s?.section_no ?? id.replace(/^.*-(?:sch-[IVX]+-|s)/, ""),
-        heading: s?.heading ?? "",
-        text: s?.text ?? "",
-        source: isItemId(id) ? "taxmap.levies" : "taxmap.sections",
-        verdict: result.verdict,
-        claim_id: claim.id,
-        reason: cleanReason(result.reason),
-        quote: result.quote,
-        ts: now(),
-      });
-    }
+    return { done, receipts: [...v.receipts, ...v.plainReceipts], trace: [...v.trace, ...v.plainTrace] };
   }
+
+  // a small pool of workers, each taking the next unjudged claim; a slot is held for the verdict only
+  let next = 0;
+  const worker = async () => {
+    while (next < claims.length) {
+      const i = next++;
+      try {
+        const verdicted = await judgeClaim(claims[i] as Claim);
+        finishClaim(verdicted).then(outcomes[i]!.resolve, outcomes[i]!.reject);
+      } catch (err) {
+        outcomes[i]!.reject(err);
+      }
+    }
+  };
+
+  // results are released in claim order, whatever order the calls finish in: the returned arrays, the
+  // onChecked events and the World Model facts all follow the order of the draft
+  const checked: CheckedClaim[] = [];
+  const receipts: Receipt[] = [];
+  const trace: TraceStep[] = [];
+  const flush = async () => {
+    for (const [i, claim] of claims.entries()) {
+      const { done, receipts: r, trace: t } = await (outcomes[i] as Deferred<ClaimOutcome>).promise;
+      checked.push(done);
+      receipts.push(...r);
+      trace.push(...t);
+      options.onChecked?.(done);
+      for (const id of [...new Set([...claim.section_ids, ...done.definitions_used])]) {
+        const s = sectionContext(id, sectionsRead[id]);
+        await world.addFact({
+          section_id: id,
+          act_id: s?.act_id ?? (isItemId(id) ? LEVIES_ACT : id.replace(/-s\d+$/, "")),
+          section_no: s?.section_no ?? id.replace(/^.*-(?:sch-[IVX]+-|s)/, ""),
+          heading: s?.heading ?? "",
+          text: s?.text ?? "",
+          source: isItemId(id) ? "taxmap.levies" : "taxmap.sections",
+          verdict: done.verdict,
+          claim_id: claim.id,
+          reason: done.reason,
+          quote: done.quote,
+          ts: now(),
+        });
+      }
+    }
+  };
+
+  await Promise.all([flush(), ...Array.from({ length: Math.min(CRITIC_CONCURRENCY, claims.length) }, worker)]);
   return { checked, receipts, trace };
 }
 
