@@ -52,6 +52,7 @@ afterAll(() => {
 beforeEach(() => {
   dir = mkdtempSync(join(tmpdir(), "taxmap-api-"));
   vi.stubEnv("RUNS_DIR", join(dir, "runs"));
+  vi.stubEnv("SAMPLE_MODE", "false"); // explicit, so the suite does not depend on the shell's environment
   // the engines write into the temp directory, never data/ or logs/
   for (const [k, sub] of [["HMEM_DIR", "memory"], ["HMEM_LOG_DIR", "hmem-logs"], ["WM_DIR", "world"], ["WM_LOG_DIR", "world-logs"]]) vi.stubEnv(k!, join(dir, sub!));
   resetEngines();
@@ -112,43 +113,52 @@ describe("POST /api/runs", () => {
     expect(pipelineMock).toHaveBeenCalledTimes(1);
   });
 
-  it("replays a sample in SAMPLE_MODE without calling the pipeline, and marks it as a sample", async () => {
-    const samples = join(dir, "samples");
-    const { mkdirSync } = await import("node:fs");
-    mkdirSync(samples);
-    writeFileSync(
-      join(samples, "retail.json"),
-      JSON.stringify({
-        name: "retail",
-        recorded_at: "2026-10-24T00:00:00.000Z",
-        profile,
-        question: "What taxes?",
-        events: [
-          { seq: 1, type: "trace", ts: "t", agent: "researcher", text: "Read NTA-2025-s143 in full", data: {} },
-          { seq: 2, type: "verdict", ts: "t", agent: "critic", text: "Critic: claim c2 struck", data: {} },
-          { seq: 3, type: "result", ts: "t", agent: "system", text: "Run complete", data: {} },
-        ],
-        result: output,
-      }),
-    );
-    vi.stubEnv("SAMPLE_MODE", "true");
-    vi.stubEnv("SAMPLES_DIR", samples);
-    vi.stubEnv("SAMPLE_DELAY_MS", "0");
+  describe("with SAMPLE_MODE on", () => {
+    beforeEach(() => {
+      vi.stubEnv("SAMPLE_MODE", "true");
+    });
 
-    const res = await post({ profile: { ...profile, lga: "Surulere" }, question: "Anything?" });
-    const { run_id, mode } = await res.json();
-    expect(mode).toBe("sample");
+    it("replays a sample in SAMPLE_MODE without calling the pipeline, and marks it as a sample", async () => {
+      const samples = join(dir, "samples");
+      const { mkdirSync } = await import("node:fs");
+      mkdirSync(samples);
+      writeFileSync(
+        join(samples, "retail.json"),
+        JSON.stringify({
+          name: "retail",
+          recorded_at: "2026-10-24T00:00:00.000Z",
+          profile,
+          question: "What taxes?",
+          events: [
+            { seq: 1, type: "trace", ts: "t", agent: "researcher", text: "Read NTA-2025-s143 in full", data: {} },
+            { seq: 2, type: "verdict", ts: "t", agent: "critic", text: "Critic: claim c2 struck", data: {} },
+            { seq: 3, type: "result", ts: "t", agent: "system", text: "Run complete", data: {} },
+          ],
+          result: output,
+        }),
+      );
+      vi.stubEnv("SAMPLES_DIR", samples);
+      vi.stubEnv("SAMPLE_DELAY_MS", "0");
 
-    const events = await readEvents(run_id);
-    expect(events.map((e) => e.event)).toEqual(["status", "trace", "verdict", "result"]);
-    expect(events[0]?.data.text).toMatch(/^Sample run: replaying an answer recorded on \d{1,2} \w+ \d{4}$/);
-    expect(events[0]?.data.detail).toMatch(/^Sample run: replaying the recorded run "retail"/); // the name stays in the run log
-    expect(events[3]?.data.data).toMatchObject({ run_id, mode: "sample", sample: "retail", draft: output.draft });
-    expect(pipelineMock).not.toHaveBeenCalled();
+      const res = await post({ profile: { ...profile, lga: "Surulere" }, question: "Anything?" });
+      const { run_id, mode } = await res.json();
+      expect(mode).toBe("sample");
+
+      const events = await readEvents(run_id);
+      expect(events.map((e) => e.event)).toEqual(["status", "trace", "verdict", "result"]);
+      expect(events[0]?.data.text).toMatch(/^Sample run: replaying an answer recorded on \d{1,2} \w+ \d{4}$/);
+      expect(events[0]?.data.detail).toMatch(/^Sample run: replaying the recorded run "retail"/); // the name stays in the run log
+      expect(events[3]?.data.data).toMatchObject({ run_id, mode: "sample", sample: "retail", draft: output.draft });
+      expect(pipelineMock).not.toHaveBeenCalled();
+    });
   });
 });
 
 describe("engines in the API", () => {
+  beforeEach(() => {
+    vi.stubEnv("SAMPLE_MODE", "true");
+  });
+
   it("a sample replay writes both engines; the result reads verified facts from the World Model; replaying again changes nothing", async () => {
     const samples = join(dir, "samples");
     const { mkdirSync } = await import("node:fs");
@@ -168,7 +178,6 @@ describe("engines in the API", () => {
     ];
     const result = { ...output, draft: { ...output.draft, claims: [checked[0]!.claim] }, checked, sections_read: [{ section_id: "NTAA-2025-s22", heading: "Returns for value added tax" }] };
     writeFileSync(join(samples, "retail.json"), JSON.stringify({ name: "retail", recorded_at: "2026-10-24T00:00:00.000Z", profile, question: "q?", events: [], result }));
-    vi.stubEnv("SAMPLE_MODE", "true");
     vi.stubEnv("SAMPLES_DIR", samples);
     vi.stubEnv("SAMPLE_DELAY_MS", "0");
 

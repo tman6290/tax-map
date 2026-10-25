@@ -47,13 +47,16 @@ export class RunStore {
   async complete(run: Run, result: RunResult): Promise<void> {
     run.result = result;
     run.status = "complete";
-    this.emit(run, { type: "result", ts: result.finished_at, agent: "system", text: "Run complete", data: result });
+    // the directory is created first (logs/runs does not exist in a fresh clone), and the file is
+    // written before the result is announced: the event stream ends with the result, so a caller that
+    // reads it to the end may remove the directory (as the tests do) the moment it closes
     try {
       await mkdir(runsDir(), { recursive: true });
       await writeFile(join(runsDir(), `${run.id}.json`), JSON.stringify(result, null, 2), "utf-8");
     } catch (err) {
       console.error(`could not write run ${run.id}: ${err instanceof Error ? err.message : String(err)}`);
     }
+    this.emit(run, { type: "result", ts: result.finished_at, agent: "system", text: "Run complete", data: result });
   }
 
   fail(run: Run, error: string): void {
