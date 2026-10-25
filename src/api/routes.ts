@@ -1,3 +1,5 @@
+// The HTTP API. Every request body is validated with zod (string lengths capped); runs are live or, in
+// SAMPLE_MODE, a replay of a recorded run; events stream over SSE; sections and Schedule items serve the drawer.
 import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -34,9 +36,10 @@ export const RunRequestSchema = z.object({
 
 const SECTION_ID_RE = /^(?:(?:NTA|NTAA|NRSEA|JRBEA)-2025|TLA-1998)-s\d+$/;
 const sampleMode = () => process.env.SAMPLE_MODE === "true";
+/** Delay per replayed event, capped at 5 s so a mistyped SAMPLE_DELAY_MS cannot stall a replay. */
 const sampleDelay = () => {
   const n = Number(process.env.SAMPLE_DELAY_MS);
-  return Number.isFinite(n) && n >= 0 ? n : 200;
+  return Number.isFinite(n) && n >= 0 ? Math.min(n, 5_000) : 200;
 };
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 

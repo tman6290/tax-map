@@ -1,3 +1,5 @@
+// Runs in memory for the process lifetime, with their buffered events. A finished run is written to
+// logs/runs before its result event is sent.
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import type { NewRunEvent, RunEvent, RunMode, RunResult } from "./types.js";

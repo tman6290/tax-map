@@ -1,3 +1,5 @@
+// World Model context builder: for one claim, the verbatim text of its sections, the definitions it
+// used and earlier verdicts on the same sections.
 import { ids } from "./ids.js";
 import type { WorldStoreService } from "./store.js";
 

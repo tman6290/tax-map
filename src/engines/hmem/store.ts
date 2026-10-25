@@ -1,3 +1,5 @@
+// H-MEM store: tiered memories (short-term, working, long-term) with decay and promotion, persisted
+// as JSON; short-term memories carry over to the next run and decay fast.
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

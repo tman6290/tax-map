@@ -1,3 +1,5 @@
+// H-MEM retrieval: hybrid ranking (similarity, keywords, recency, access, layer) with forgetting-curve
+// retention applied.
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { cosine, embed, tokens } from "./embedding.js";

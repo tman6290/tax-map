@@ -1,3 +1,5 @@
+// The Zetaris client: one SQL statement per call to the SQL editor endpoint, with a timeout and bounded
+// retries on network errors and 5xx. Error messages never contain credentials.
 import { randomUUID } from "node:crypto";
 
 export interface SqlResult {
@@ -103,7 +105,8 @@ export async function runSql(sql: string, options: RunSqlOptions = {}): Promise<
       continue;
     }
     if (!res.ok) {
-      const detail = (await res.text().catch(() => "")).slice(0, 500);
+      // the response body is echoed into the error, so the key is cut out of it should the server repeat it
+      const detail = (await res.text().catch(() => "")).slice(0, 500).split(key).join("[REDACTED]");
       throw new ZetarisError(`Zetaris rejected the request: HTTP ${res.status} ${detail}`.trim(), res.status);
     }
     return parseResponse(await res.json());

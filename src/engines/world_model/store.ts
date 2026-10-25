@@ -1,3 +1,5 @@
+// World Model store: one JSON document written through on every commit, with a JSONL event log.
+// A failed disk write leaves the store working in memory, marked degraded.
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { stableStringify } from "./ids.js";

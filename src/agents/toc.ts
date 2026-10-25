@@ -1,3 +1,5 @@
+// The Map of the Acts: sections grouped by Act, chapter and Part, for the Researcher's prompt and for
+// resolving the Part a browse_part call names.
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -1,3 +1,5 @@
+// H-MEM mining without a model: runtime events become short memories, and model memory extractions are
+// parsed defensively.
 import type { MemoryType, NewMemory } from "./types.js";
 
 /** The runtime events H-MEM mines (H-MEM spec §6), from the emitting agent's point of view. */

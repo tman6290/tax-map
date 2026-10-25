@@ -1,3 +1,4 @@
+// The process's shared H-MEM and World Model, created on first use from the environment.
 import { HMem } from "./hmem/index.js";
 import { WorldModelEngine } from "./world_model/index.js";
 

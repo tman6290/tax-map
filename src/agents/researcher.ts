@@ -1,3 +1,6 @@
+// The Researcher: finds the sections that apply to a profile and drafts cited claims, on Lane 1. The
+// code keeps a citation only if the section was read in full in this run, guards every SQL query,
+// enforces the coverage checklist and the levy rules, and gives drafting turns a digest, not raw results.
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -1063,6 +1066,7 @@ export async function research(
       if (!seen.has(id)) unseen.push(`${c.id}:${id}`);
       else if (!fetched.has(id)) unread.push(`${c.id}:${id}`);
     }
+    // read-before-cite: a citation survives only if that section was read in full in this run
     return { ...c, section_ids: ids.filter((id) => fetched.has(id)) };
   });
   const uncited = claims.filter((c) => c.section_ids.length === 0).map((c) => c.id);

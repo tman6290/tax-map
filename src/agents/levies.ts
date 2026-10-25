@@ -1,3 +1,5 @@
+// The Schedule of the Taxes and Levies (Approved List for Collection) Act 1998 and the rules on claims
+// citing it: one claim per item, each naming a profile fact, at most six, and never an amount.
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -29,7 +31,6 @@ export interface LevyItem {
 
 export const ITEM_ID_RE = /^TLA-1998-sch-(I|II|III)-(\d+)$/;
 export const PART_TIER: Record<LevyPart, LevyTier> = { I: "federal", II: "state", III: "lga" };
-export const TIER_PART: Record<LevyTier, LevyPart> = { federal: "I", state: "II", lga: "III" };
 
 export const isItemId = (id: string) => ITEM_ID_RE.test(id);
 

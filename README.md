@@ -37,11 +37,11 @@ Nigeria's tax law changed in 2025: four new Acts replaced much of the old framew
 - Meterless Nightshift reachable locally (default `http://127.0.0.1:8088/v1`), with an NVIDIA key behind it and two lanes: one for the Researcher (Nemotron 3.5 Lightning 30B, app `taxmap`) and one for the Critic (Nemotron 3 Ultra 550B, app `taxmap-critic`).
 - For re-parsing the statutes only: Python 3 with `pdfplumber`, and the source PDFs (not stored in this repo; see SOURCES.md). The parsed JSON in `data/statutes/` is committed, so this is not needed to run the app.
 
-**Environment.** Copy `.env.example` to `.env` and fill in:
+**Environment.** Copy `.env.example` to `.env` and fill in the keys below. `.env.example` lists every variable the code reads, with a comment on each; the optional ones (storage folders, sample delay, debug logging, parser settings) are commented out at their defaults.
 
 | Key | Purpose |
 | --- | --- |
-| `PORT` | Port the server listens on (8080). |
+| `PORT` | Port the server listens on (default 8080). If `PORT` is set, the server listens on all interfaces (0.0.0.0, for a container); if not, only on 127.0.0.1. |
 | `METERLESS_BASE_URL` | Nightshift's OpenAI-compatible endpoint. |
 | `METERLESS_RUNTIME_TOKEN` | Token for Nightshift. Never logged. |
 | `METERLESS_APP` | App (lane) name for the Researcher's calls (`taxmap`). |
@@ -105,6 +105,8 @@ A live run takes 6 to 12 minutes and results vary between runs; the page shows e
 | `npx tsx scripts/register_tables.ts` | Register the statutes in Zetaris (see Setup). |
 | `python scripts/parse_acts.py` | Re-parse the five PDFs into `data/statutes/` (hash-checked). |
 | `npm run conformance` | H-MEM and World Model conformance. |
+
+`scripts/dev/` holds the probes used while building (see its README); they are not part of the app.
 
 **What the page shows.** A form for the business profile (the State is fixed at Lagos), then a plain-language progress log while the agents work. The result has a summary line, **Your tax map** (three columns: Federal, Lagos State and the owner's LGA, each naming the authority that collects its lines, with "Being added" under a tier that has no claims), then one card per line: the plain-words line, the legal sentence, a verdict label (Applies to you, Applies with a condition, Not verified), the Critic's reason with its quote, "Collected by", and a link that opens the section or Schedule item in a drawer. Lines the Critic set aside are listed in their own section, followed by anything the data could not answer and any notes. A closed "See how this answer was produced" section holds the run log, memory and World Model counts, queries, sections read, definitions, and every model call with its receipt.
 
@@ -184,6 +186,7 @@ npx tsx scripts/record_sample.ts --attempts 3 --min-claims 5 --min-supported 3 -
 - **Live runs vary** (1 to 9 lines across our recordings); the recorded sample is one complete run, not the best of several. A thin draft leaves checklist areas under "Not answered".
 - **Nightshift and model availability.** Attempts that stop early on a gateway error end within a minute or two. The gateway sometimes answers HTTP 502 `…_empty_response` or times out; calls are retried a bounded number of times, and a failed Critic call leaves a claim "Not verified" rather than rejected. Router and model availability on the day decides whether a live run completes.
 - **The sample predates the levies source** (see [Sample mode](#sample-mode)).
+- npm audit flags zod 3.x (memory use on very large inputs); request bodies are capped at 64 KB; upgrade to zod 4 is planned.
 - **This is not legal advice.** Tax Map shows what the loaded Acts say about a described business. It does not replace a tax adviser or the relevant authority.
 
 ## Pre-existing components
@@ -191,6 +194,8 @@ npx tsx scripts/record_sample.ts --attempts 3 --min-claims 5 --min-supported 3 -
 - The Zetaris getting-started repository was read for the SQL forms and API shapes. Nothing was copied from it.
 - The Meterless H-MEM and World Model engine specs are the design source. The engines were implemented from scratch for this project.
 - Everything else was written during the hackathon.
+
+NOTICE.md records these sources. The code is under the MIT License (LICENSE).
 
 ## Tests
 

@@ -1,3 +1,4 @@
+// Trace arrays that report each step as it is pushed, so the API can stream progress while the agents run.
 import type { TraceStep } from "./types.js";
 
 /**

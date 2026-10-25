@@ -1,3 +1,5 @@
+// The Researcher's coverage checklist: the six areas every draft must address and the Parts of the Acts
+// each points to. Only claims cover an area; an entry in unanswered never does.
 import { corpus } from "./glossary.js";
 import { levies } from "./levies.js";
 import { tocEntries, type TocEntry } from "./toc.js";

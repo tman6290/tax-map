@@ -1,3 +1,6 @@
+// The Critic: judges each drafted claim against the verbatim text it cites, on Lane 2. The code, not the
+// model, verifies every quote against the text, strikes levy claims that state an amount, splits long
+// sections into pieces (smaller ones after an HTTP 502), and checks each plain-words line.
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -711,6 +714,7 @@ async function judgePiece(
       qualifier: v.verdict === "qualified" ? v.qualifier : null,
       receipt,
     };
+    // quote grounding: a supported or qualified verdict stands only if its quote is verbatim in the text shown
     if ((out.verdict === "supported" || out.verdict === "qualified") && !verified) {
       out = { ...out, verdict: "struck", struck_because: "not_established", qualifier: null, reason: `${QUOTE_NOT_FOUND}${v.reason}` };
     } else if (out.struck_because === "not_established" && !out.reason.startsWith(NOT_ESTABLISHED)) {

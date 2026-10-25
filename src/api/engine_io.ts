@@ -1,3 +1,5 @@
+// Feeds a finished run (live or sample) to the two engines: the World Model ingests its verdicts, and
+// H-MEM mines its outcome.
 import { corpus } from "../agents/glossary.js";
 import type { CheckedClaim, Draft } from "../agents/types.js";
 import type { Engines } from "../engines/index.js";

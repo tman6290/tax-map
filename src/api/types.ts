@@ -1,3 +1,4 @@
+// Types for run events and results as the API sends them to the page.
 import type { CheckedClaim, Draft, Profile } from "../agents/types.js";
 import type { HMemRunStats } from "../engines/hmem/index.js";
 import type { Fact } from "../engines/types.js";

@@ -1,3 +1,5 @@
+// The Meterless Nightshift client (primary AI provider): one chat completion per call with a timeout and
+// bounded retries, a receipt from every response, and errors that never contain the runtime token.
 import { appendJsonl } from "../logging/jsonl.js";
 
 export interface ToolCall {

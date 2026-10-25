@@ -1,3 +1,5 @@
+// Warms the Zetaris view caches. Uncached, each query re-fetches the JSON (about 40 s); the cache does
+// not survive a container restart, so the server and scripts warm it on start.
 import { runSql } from "./zetaris.js";
 
 /** Views cached in Zetaris. Their REST tables re-fetch and re-parse the JSON on every uncached query (40-60 s). */

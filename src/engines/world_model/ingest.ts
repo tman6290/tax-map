@@ -1,3 +1,4 @@
+// World Model ingest: turns a finished run into entities, edges and facts in a fixed, idempotent order.
 import { contentHash, ids } from "./ids.js";
 import type { WorldStoreService } from "./store.js";
 import type { EdgeType, EntityType, WMEdge, WMEntity } from "./types.js";

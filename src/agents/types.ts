@@ -1,3 +1,4 @@
+// Shared types for the agents: the profile, claims, drafts, verdicts and checked claims.
 import type { Receipt } from "../providers/meterless.js";
 import type { Collector } from "./collector.js";
 

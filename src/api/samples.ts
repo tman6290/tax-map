@@ -1,3 +1,5 @@
+// Recorded runs for SAMPLE_MODE (data/samples). Only the receipt fields the page shows are stored;
+// signatures and keys never are.
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

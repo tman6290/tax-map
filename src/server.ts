@@ -1,3 +1,6 @@
+// The Express server: the API under /api and the page from public/. It listens on PORT (default 8080),
+// on all interfaces only when PORT is set in the environment (else 127.0.0.1), and warms the Zetaris
+// cache in the background unless SAMPLE_MODE is on.
 import "dotenv/config";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import express from "express";
@@ -22,10 +25,12 @@ const isMain =
   import.meta.url === pathToFileURL(process.argv[1]).href;
 
 if (isMain) {
+  // all interfaces only when the environment sets PORT (a container or a deliberate .env); otherwise loopback
+  const host = process.env.PORT ? "0.0.0.0" : "127.0.0.1";
   const port = Number(process.env.PORT ?? 8080);
   const sample = process.env.SAMPLE_MODE === "true";
-  app.listen(port, "0.0.0.0", () => {
-    console.log(`tax-map listening on 0.0.0.0:${port}${sample ? " (SAMPLE_MODE: runs replay data/samples, no model or Zetaris calls)" : ""}`);
+  app.listen(port, host, () => {
+    console.log(`tax-map listening on ${host}:${port}${sample ? " (SAMPLE_MODE: runs replay data/samples, no model or Zetaris calls)" : ""}`);
   });
   if (!sample) {
     // The Zetaris cache does not survive a container restart: warm it in the background so /health

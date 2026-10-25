@@ -1,3 +1,4 @@
+// The interfaces the agents see of the engines: per-run memory, and the World Model's facts.
 import type { Verdict } from "../agents/types.js";
 
 /** One judged (claim, cited section) pair. */

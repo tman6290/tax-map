@@ -1,3 +1,5 @@
+// Which authority collects the tax a claim is about (federal, State or local government), decided by code.
+// A cited Schedule item's Part outranks every keyword rule; otherwise NTAA s. 3 decides.
 import { itemPart, PART_TIER, type LevyPart } from "./levies.js";
 import type { Claim, Profile } from "./types.js";
 
@@ -76,6 +78,7 @@ function basisIndividual(profile: Profile): string {
  *  5. otherwise federal.
  */
 export function collectorFor(claim: Pick<Claim, "text" | "tier"> & Partial<Pick<Claim, "section_ids">>, profile: Profile): Collector {
+  // collector precedence: a cited Schedule item's Part outranks every rule below
   const part = (claim.section_ids ?? []).map(itemPart).find((p) => p !== null);
   if (part) return scheduleCollector(part, profile);
   if (claim.tier === "state") return { tier: "state", authority: stateAuthority(profile.state), basis: `This line cites a ${profile.state} State instrument.`, section_id: null };

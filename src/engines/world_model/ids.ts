@@ -1,5 +1,6 @@
+// Stable content-hash ids and order-independent JSON, so repeated ingests of the same run converge.
 import { createHash } from "node:crypto";
-import type { EdgeType, EntityType } from "./types.js";
+import type { EdgeType } from "./types.js";
 
 const h = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 16);
 
@@ -17,11 +18,6 @@ export const ids = {
   run: (runId: string) => `run_${h(`run|${runId}`)}`,
   edge: (type: EdgeType, from: string, to: string) => `edge_${h(`${type}|${from}|${to}`)}`,
 };
-
-export function entityTypeOf(id: string): EntityType | undefined {
-  const t = id.split("_")[0];
-  return t === "act" || t === "section" || t === "definition" || t === "claim" || t === "verdict" || t === "run" ? t : undefined;
-}
 
 /** Order-independent JSON for hashing and change detection. */
 export function stableStringify(v: unknown): string {

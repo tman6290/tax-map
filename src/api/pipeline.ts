@@ -1,3 +1,5 @@
+// One live run: Researcher, then Critic, with each step reported as an event, and the engines updated
+// when it finishes.
 import { critique } from "../agents/critic.js";
 import { research } from "../agents/researcher.js";
 import type { CheckedClaim, Draft, Profile, ResearchResult, TraceStep } from "../agents/types.js";

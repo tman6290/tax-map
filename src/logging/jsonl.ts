@@ -1,3 +1,4 @@
+// JSONL logging: one JSON object per line under logs/.
 import { appendFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 

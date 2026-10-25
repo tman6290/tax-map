@@ -1,3 +1,4 @@
+// H-MEM trust ledger: an append-only JSONL audit of every significant memory action.
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
 import type { LedgerAction, LedgerEntry } from "./types.js";

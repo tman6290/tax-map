@@ -6,5 +6,5 @@
 - Never print or log secrets, tokens, or API keys.
 - Write logs to `logs/` as JSONL (one JSON object per line).
 - Tests live in `tests/` and run with `npm test` (vitest).
-- Run `npm run build` and `npm test` before finishing a change.
+- Run `npm run lint`, `npm run build` and `npm test` before finishing a change.
 - Never run `git push`.

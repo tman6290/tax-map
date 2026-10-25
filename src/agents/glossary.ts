@@ -1,3 +1,5 @@
+// The statute corpus (data/statutes/sections.json) and a glossary parsed from each Act's interpretation
+// section. Definitions are attached to the Critic's input by code, so the model need not look them up.
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";

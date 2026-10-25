@@ -1,3 +1,5 @@
+// Words for the page. Each run event gets a plain line for the business owner and a technical line for
+// the run log; "Not answered" and "Notes" are folded to one entry per area with internal names rewritten.
 import { checklistAreas, type ChecklistArea } from "../agents/checklist.js";
 import { cleanReason } from "../agents/critic.js";
 import { isItemId, itemLabel, LEVIES_ACT } from "../agents/levies.js";
