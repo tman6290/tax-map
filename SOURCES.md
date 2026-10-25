@@ -2,13 +2,13 @@
 
 Statute text in `data/statutes/` is parsed from the PDFs below. The PDFs are not stored in this repo; they live in `C:\Users\LENOVO\Desktop\hackathon-scratch\acts\`. SHA-256 values are from each folder's `hashes.txt` and were re-checked against the files by `scripts/parse_acts.py`.
 
-| act_id | Act | File | Folder | SHA-256 |
-| --- | --- | --- | --- | --- |
-| NTA-2025 | Nigeria Tax Act, 2025 | `NTA-2025-gazette-fgp.pdf` | `acts\gazette` | `41ABF6887BC58A3C97116FD9A048AA91AD49C1CAB156F39065A58401C0FCE94F` |
-| NTAA-2025 | Nigeria Tax Administration Act, 2025 | `NTAA-2025-gazette-gng.pdf` | `acts\gazette` | `1602CF3245F250107E9BA0099C8755B52D04CD8A497A3C029772C624AB2C2625` |
-| NRSEA-2025 | Nigeria Revenue Service (Establishment) Act, 2025 | `NRSA-2025-ctc.pdf` | `acts\ctc` | `B7072257F6D68DD99EC10F332FBDDB5FB507681B85172852A16510BFAFB87F0E` |
-| JRBEA-2025 | Joint Revenue Board of Nigeria (Establishment) Act, 2025 | `JRBA-2025-ctc.pdf` | `acts\ctc` | `97B648230DEE2F6FC1E9F5248343DFB8D6C6D17B4C2D38ABE661ABEE6201E458` |
-| TLA-1998 | Taxes and Levies (Approved List for Collection) Act, 1998 (Cap. T2) | `Nigeria_8_NigeriaTaxesLevies1998.pdf` | `acts\other` | `F2693F35B511672AF30BDE5F10680726C221DD55B07270EF932E00AE28053E3E` |
+| act_id | Act | Copy used | Sections | File | Folder | SHA-256 |
+| --- | --- | --- | --- | --- | --- | --- |
+| NTA-2025 | Nigeria Tax Act, 2025 | FGP gazette (not the LIRS copy) | 202 | `NTA-2025-gazette-fgp.pdf` | `acts\gazette` | `41ABF6887BC58A3C97116FD9A048AA91AD49C1CAB156F39065A58401C0FCE94F` |
+| NTAA-2025 | Nigeria Tax Administration Act, 2025 | Gazette (`gng`) | 148 | `NTAA-2025-gazette-gng.pdf` | `acts\gazette` | `1602CF3245F250107E9BA0099C8755B52D04CD8A497A3C029772C624AB2C2625` |
+| NRSEA-2025 | Nigeria Revenue Service (Establishment) Act, 2025 | CTC (`acts\ctc`) | 43 | `NRSA-2025-ctc.pdf` | `acts\ctc` | `B7072257F6D68DD99EC10F332FBDDB5FB507681B85172852A16510BFAFB87F0E` |
+| JRBEA-2025 | Joint Revenue Board of Nigeria (Establishment) Act, 2025 | CTC (`acts\ctc`) | 61 | `JRBA-2025-ctc.pdf` | `acts\ctc` | `97B648230DEE2F6FC1E9F5248343DFB8D6C6D17B4C2D38ABE661ABEE6201E458` |
+| TLA-1998 | Taxes and Levies (Approved List for Collection) Act, 1998 (Cap. T2) | 1998 Act, 1998 Schedule only (`acts\other`) | 5, plus 39 Schedule items | `Nigeria_8_NigeriaTaxesLevies1998.pdf` | `acts\other` | `F2693F35B511672AF30BDE5F10680726C221DD55B07270EF932E00AE28053E3E` |
 
 `acts\other\hashes.txt` is PowerShell `Get-FileHash` output (`Path` and `Hash` lines, UTF-16), not the `<hash>  <file>` format of the other two folders; `scripts/parse_acts.py` reads both.
 

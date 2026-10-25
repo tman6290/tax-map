@@ -1,14 +1,65 @@
 {
   "project_name": "Tax Map",
   "track": "Track 2: The Agent That Can Explain Why",
-  "team": "solo",
+  "team": "ISEGUN (solo)",
+  "repo": "https://github.com/tman6290/tax-map",
+  "demo": "local; see README Setup and Sample mode",
   "sponsor_technology": {
-    "zetaris": "TBD",
-    "meterless": "TBD",
-    "cursor": "TBD",
-    "nvidia": "TBD"
+    "zetaris": "The five Acts are served from Zetaris as Lightning REST tables over pinned GitHub raw JSON, exposed as cached schema-store views (sections, acts, levies) that the Researcher queries with SQL; caching took a query from about 40 s to about 0.4 s.",
+    "meterless": "Meterless Nightshift 1.2.3 is the primary AI provider for every product model call, with lane-pinned routing and a signed receipt on each call, and the H-MEM and World Model engines were implemented from the Meterless specs (conformance 7/7 and 8/8).",
+    "cursor": "Cursor was used for edits during development; the organisers removed the Cursor requirement on 22 October.",
+    "nvidia": "Both agents run on NVIDIA Nemotron through Nightshift, a fast 3.5 Lightning 30B Researcher and a 3 Ultra 550B Critic, and the per-call receipts record which model served each call."
   },
-  "models_used": [],
-  "data_sources": [],
-  "pre_existing_components": []
+  "models_used": [
+    {
+      "role": "Researcher",
+      "model": "nvidia/nemotron-3.5-lightning-30b-a3b",
+      "name": "NVIDIA Nemotron 3.5 Lightning 30B",
+      "via": "Meterless Nightshift 1.2.3"
+    },
+    {
+      "role": "Critic",
+      "model": "nvidia/nemotron-3-ultra-550b-a55b",
+      "name": "NVIDIA Nemotron 3 Ultra 550B",
+      "via": "Meterless Nightshift 1.2.3"
+    }
+  ],
+  "development_tools": ["Claude Code (Anthropic), in the Claude Desktop app", "Cursor", "Claude, for planning and prompt drafting"],
+  "data_sources": [
+    {
+      "act_id": "NTA-2025",
+      "title": "Nigeria Tax Act, 2025",
+      "copy": "FGP gazette, NTA-2025-gazette-fgp.pdf (202 sections); the LIRS copy has 203 sections and is not cited",
+      "sha256": "41ABF6887BC58A3C97116FD9A048AA91AD49C1CAB156F39065A58401C0FCE94F"
+    },
+    {
+      "act_id": "NTAA-2025",
+      "title": "Nigeria Tax Administration Act, 2025",
+      "copy": "Gazette, NTAA-2025-gazette-gng.pdf (148 sections)",
+      "sha256": "1602CF3245F250107E9BA0099C8755B52D04CD8A497A3C029772C624AB2C2625"
+    },
+    {
+      "act_id": "NRSEA-2025",
+      "title": "Nigeria Revenue Service (Establishment) Act, 2025",
+      "copy": "CTC copy, NRSA-2025-ctc.pdf (43 sections)",
+      "sha256": "B7072257F6D68DD99EC10F332FBDDB5FB507681B85172852A16510BFAFB87F0E"
+    },
+    {
+      "act_id": "JRBEA-2025",
+      "title": "Joint Revenue Board of Nigeria (Establishment) Act, 2025",
+      "copy": "CTC copy, JRBA-2025-ctc.pdf (61 sections)",
+      "sha256": "97B648230DEE2F6FC1E9F5248343DFB8D6C6D17B4C2D38ABE661ABEE6201E458"
+    },
+    {
+      "act_id": "TLA-1998",
+      "title": "Taxes and Levies (Approved List for Collection) Act, 1998 (Cap. T2)",
+      "copy": "Nigeria_8_NigeriaTaxesLevies1998.pdf (5 sections, 1998 Schedule of 39 items only; not repealed by the 2025 Acts; the 2015 Amendment Order, set aside in 2020, is excluded; amounts are never asserted)",
+      "sha256": "F2693F35B511672AF30BDE5F10680726C221DD55B07270EF932E00AE28053E3E"
+    }
+  ],
+  "pre_existing_components": [
+    "The Zetaris getting-started repository was read for SQL forms; nothing was copied from it.",
+    "The Meterless H-MEM and World Model engine specs are the design source; the engines were implemented from scratch.",
+    "Everything else was written during the hackathon."
+  ]
 }
