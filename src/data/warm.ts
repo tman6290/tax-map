@@ -1,7 +1,7 @@
 import { runSql } from "./zetaris.js";
 
 /** Views cached in Zetaris. Their REST tables re-fetch and re-parse the JSON on every uncached query (40-60 s). */
-export const CACHED_VIEWS = ["taxmap.sections", "taxmap.acts"];
+export const CACHED_VIEWS = ["taxmap.sections", "taxmap.acts", "taxmap.levies"];
 const CACHE_TIMEOUT_MS = 180_000; // one cold fetch and parse took about 60 s
 
 export interface WarmResult {

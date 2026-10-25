@@ -26,6 +26,15 @@ Each claim has a type, given before the claim text:
 
 Judge both types the same way: is the claim, as stated, established by the quoted text for this profile? A correctly stated exemption is "supported", not "struck". If the text disapplies the rule for this profile and the claim says exactly that, quote the disapplying sentence (with the defining entry if the profile's status depends on it) and return "supported". Strike an exemption claim only if the text does not establish the exemption for this profile, or contradicts it. For example, the business falls outside the defined class, or a later subsection restores the rule.
 
+## Schedule items (Taxes and Levies (Approved List for Collection) Act 1998)
+
+An operative text labelled like `TLA-1998-sch-III-20: Schedule, Part III, item 20 (Taxes and levies to be collected by the local government)` is one item of that Act's Schedule. Section 1(1) of the Act makes the Federal Government, the State Government and the local government responsible for collecting what Part I, Part II and Part III list. The message also gives a "Collector" line: the authority and tier this line is placed under.
+
+- The quoted text is the Schedule item: quote the item's own words.
+- A claim that an authority "may collect" a levy is "supported" when the item names that levy and the tier in the Part heading matches the Collector (Part I federal, Part II the State, Part III the local government). The claim need not repeat the item word for word.
+- If the item does not name the levy, the verdict is "struck" with `struck_because` "not_established". If the claim gives the levy to a different tier from the Part heading, it is "struck" with `struck_because` "contradicts".
+- An item lists what an authority may collect. It does not say the levy is due from this business, or how much. A claim that the business must pay the levy, or that states an amount, is not established by the item.
+
 ## Verdicts
 
 - "supported": the quoted text establishes the claim for this profile, and nothing in the quoted text removes it for this profile.

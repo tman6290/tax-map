@@ -38,5 +38,15 @@
     "source_file": "ctc/JRBA-2025-ctc.pdf",
     "source_sha256": "97B648230DEE2F6FC1E9F5248343DFB8D6C6D17B4C2D38ABE661ABEE6201E458",
     "section_count": 61
+  },
+  {
+    "act_id": "TLA-1998",
+    "act_title": "Taxes and Levies (Approved List for Collection) Act, 1998",
+    "short_title": "Taxes and Levies (Approved List for Collection) Act",
+    "year": 1998,
+    "tier": "federal",
+    "source_file": "other/Nigeria_8_NigeriaTaxesLevies1998.pdf",
+    "source_sha256": "F2693F35B511672AF30BDE5F10680726C221DD55B07270EF932E00AE28053E3E",
+    "section_count": 5
   }
 ]

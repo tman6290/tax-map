@@ -200,12 +200,32 @@ describe("reference endpoints", () => {
   it("serves health, the Acts and a section's full text", async () => {
     expect(await (await fetch(`${base}/api/health`)).json()).toEqual({ ok: true });
     const acts = (await (await fetch(`${base}/api/acts`)).json()) as Array<{ act_id: string }>;
-    expect(acts.map((a) => a.act_id)).toEqual(["NTA-2025", "NTAA-2025", "NRSEA-2025", "JRBEA-2025"]);
+    expect(acts.map((a) => a.act_id)).toEqual(["NTA-2025", "NTAA-2025", "NRSEA-2025", "JRBEA-2025", "TLA-1998"]);
     const s22 = await (await fetch(`${base}/api/sections/NTAA-2025-s22`)).json();
     expect(s22).toMatchObject({ section_id: "NTAA-2025-s22", heading: "Returns for value added tax" });
     expect(s22.text).toContain("shall not apply to a small business");
     expect((await fetch(`${base}/api/sections/not-a-section`)).status).toBe(404);
     expect((await fetch(`${base}/api/runs/00000000-0000-0000-0000-000000000000`)).status).toBe(404);
+  });
+
+  it("serves a Schedule item of the levies Act for the drawer: its label, the Part heading and the verbatim text", async () => {
+    const item = await (await fetch(`${base}/api/sections/TLA-1998-sch-III-20`)).json();
+    expect(item).toEqual({
+      section_id: "TLA-1998-sch-III-20",
+      act_id: "TLA-1998",
+      kind: "schedule_item",
+      label: "Schedule, Part III, item 20",
+      part: "III",
+      part_title: "Taxes and levies to be collected by the local government",
+      item_no: "20",
+      text: "Signboard and advertisement permit fees.",
+    });
+    // the drawer shows the figures the claims never assert
+    expect((await (await fetch(`${base}/api/sections/TLA-1998-sch-II-7`)).json()).text).toContain("N10,000 for registration");
+    expect((await (await fetch(`${base}/api/sections/TLA-1998-s1`)).json()).heading).toBe("Responsibility for collecting certain taxes, and levies, etc.");
+    expect((await fetch(`${base}/api/sections/TLA-1998-sch-III-21`)).status).toBe(404);
+    const acts = (await (await fetch(`${base}/api/acts`)).json()) as Array<{ act_id: string; act_title: string }>;
+    expect(acts.find((a) => a.act_id === "TLA-1998")?.act_title).toBe("Taxes and Levies (Approved List for Collection) Act, 1998");
   });
 
   it("serves the page", async () => {

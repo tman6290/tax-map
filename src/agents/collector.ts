@@ -1,3 +1,4 @@
+import { itemPart, PART_TIER, type LevyPart } from "./levies.js";
 import type { Claim, Profile } from "./types.js";
 
 /**
@@ -42,6 +43,20 @@ const BASIS_COMPANY =
   "Nigeria Tax Administration Act 2025, s. 3(1)(a): the Nigeria Revenue Service has exclusive responsibility for administering taxes on companies.";
 const BASIS_DEFAULT = "No State or local rule applies to this line in the loaded Acts, so it is shown under the federal authority.";
 
+/** s. 1(1) of the Taxes and Levies (Approved List for Collection) Act: who collects what each Schedule Part lists. */
+export const SCHEDULE_COLLECTOR_SECTION = "TLA-1998-s1";
+const TLA_CITE = "Taxes and Levies (Approved List for Collection) Act 1998, s. 1(1)";
+
+function scheduleCollector(part: LevyPart, profile: Profile): Collector {
+  const tier = PART_TIER[part];
+  const [government, authority] =
+    tier === "federal" ? ["Federal Government", NRS] : tier === "state" ? ["State Government", stateAuthority(profile.state)] : ["local government", lgaAuthority(profile.lga)];
+  const basis =
+    `${TLA_CITE}: the ${government} is responsible for collecting the taxes and levies listed in Part ${part} of the Schedule, ` +
+    `and this line cites an item in Part ${part}, so it goes to the ${authority}.`;
+  return { tier, authority, basis, section_id: SCHEDULE_COLLECTOR_SECTION };
+}
+
 function basisIndividual(profile: Profile): string {
   const who = profile.business_type === "partnership" ? "a partner" : "a sole proprietor";
   return (
@@ -52,13 +67,17 @@ function basisIndividual(profile: Profile): string {
 
 /**
  * The collecting authority for a claim, by these rules in order:
+ *  0. a claim citing an item of the levies Schedule goes to the tier s. 1(1) gives that Part: Part I
+ *     federal, Part II the State, Part III the local government (the first item cited decides);
  *  1. a claim citing a State or LGA instrument goes to that tier (none is loaded yet);
  *  2. VAT, the development levy, companies income tax and tax on non-residents: federal;
  *  3. anything for a company: federal;
  *  4. income tax, PAYE, returns and registration for a sole proprietor or partner: the State;
  *  5. otherwise federal.
  */
-export function collectorFor(claim: Pick<Claim, "text" | "tier">, profile: Profile): Collector {
+export function collectorFor(claim: Pick<Claim, "text" | "tier"> & Partial<Pick<Claim, "section_ids">>, profile: Profile): Collector {
+  const part = (claim.section_ids ?? []).map(itemPart).find((p) => p !== null);
+  if (part) return scheduleCollector(part, profile);
   if (claim.tier === "state") return { tier: "state", authority: stateAuthority(profile.state), basis: `This line cites a ${profile.state} State instrument.`, section_id: null };
   if (claim.tier === "lga") return { tier: "lga", authority: lgaAuthority(profile.lga), basis: `This line cites a ${profile.lga} local government instrument.`, section_id: null };
   if (FEDERAL_TOPICS.test(claim.text)) return { tier: "federal", authority: NRS, basis: BASIS_FEDERAL_TOPIC, section_id: COLLECTOR_SECTION };

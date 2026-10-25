@@ -1,4 +1,5 @@
 import { corpus } from "./glossary.js";
+import { levies } from "./levies.js";
 import { tocEntries, type TocEntry } from "./toc.js";
 import type { Claim, Profile } from "./types.js";
 
@@ -9,6 +10,8 @@ export interface ChecklistArea {
   /** Matched against claim text and cited section headings (see covers). */
   wording: RegExp;
   parts: Array<{ act_id: string; chapter?: RegExp; part?: RegExp }>;
+  /** The area's targeted turn also lists the State and LGA items of the levies Schedule (list_levies). */
+  levies?: boolean;
 }
 
 /** The checklist areas that apply to a profile, with the labels used in targeted turns. */
@@ -58,11 +61,12 @@ export function checklistAreas(profile: Profile): ChecklistArea[] {
     {
       key: "f",
       label: "Any levy the Acts impose on businesses of this profile",
-      wording: /\blev(?:y|ies)\b|surcharge/i,
+      wording: /\blev(?:y|ies)\b|surcharge|\bmay collect\b/i,
       parts: [
         { act_id: "NTA-2025", part: /LEVY/ },
         { act_id: "NTA-2025", chapter: /SURCHARGE/ },
       ],
+      levies: true,
     },
   ];
   return areas.filter((a) => a.key !== "c" || profile.employees > 0);
@@ -89,8 +93,9 @@ export function covers(claim: Claim, area: ChecklistArea, heading: (id: string) 
   return area.wording.test(claim.text) || claim.section_ids.some((id) => area.wording.test(heading(id)));
 }
 
+/** A section's heading, or for a Schedule item the Part's heading ("Taxes and levies to be collected by ..."). */
 function corpusHeading(id: string): string {
-  return corpus().get(id)?.heading ?? "";
+  return corpus().get(id)?.heading ?? levies().get(id)?.part_title ?? "";
 }
 
 /**

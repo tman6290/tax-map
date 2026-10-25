@@ -1,3 +1,4 @@
+import { isItemId, itemLabel, LEVIES_ACT } from "../agents/levies.js";
 import type { CheckedClaim, TraceStep } from "../agents/types.js";
 
 type D = Record<string, unknown>;
@@ -8,12 +9,13 @@ type D = Record<string, unknown>;
  * was produced". Only two actors appear in either: the Researcher and the Critic.
  */
 
-/** Short names of the four Acts in the corpus (data/statutes/acts.json), as a reader says them. */
+/** Short names of the five Acts in the corpus (data/statutes/acts.json), as a reader says them. */
 const ACT_NAMES: Record<string, string> = {
   "NTA-2025": "Nigeria Tax Act",
   "NTAA-2025": "Nigeria Tax Administration Act",
   "NRSEA-2025": "Nigeria Revenue Service (Establishment) Act",
   "JRBEA-2025": "Joint Revenue Board of Nigeria (Establishment) Act",
+  "TLA-1998": "Taxes and Levies (Approved List for Collection) Act",
 };
 const actName = (id: string) => ACT_NAMES[id] ?? id;
 
@@ -27,6 +29,9 @@ const AREA_NAMES: Record<string, string> = {
   f: "levies",
 };
 
+/** list_levies tiers as a reader says them. */
+const LEVY_TIER_WORDS: Record<string, string> = { federal: "federal", state: "State", lga: "local government" };
+
 const ids = (v: unknown) => (Array.isArray(v) ? v.map(String) : []);
 const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -38,6 +43,8 @@ function splitId(id: string): { act: string; no: string } {
 
 /** "section 201 of the Nigeria Tax Act", "sections 143 and 144 of the Nigeria Tax Act", or "3 sections". */
 function sectionsPhrase(sectionIds: string[]): string {
+  const [only] = sectionIds;
+  if (sectionIds.length === 1 && only && isItemId(only)) return `${itemLabel(only)} of the ${actName(LEVIES_ACT)}`;
   const parts = sectionIds.map(splitId);
   const acts = new Set(parts.map((p) => p.act));
   if (parts.length === 0) return "no sections";
@@ -106,6 +113,7 @@ export function describeResearcherStep(step: TraceStep): string {
     if (d.error) return "Researcher's lookup did not work; trying another way";
     if (tool === "run_sql") return `Researcher searched the Acts: ${count(Number(d.row_count ?? 0), "match", "matches")}`;
     if (tool === "browse_part") return `Researcher browsed ${partPhrase(String(d.requested ?? ""))}: ${count(Number(d.row_count ?? 0), "section", "sections")}`;
+    if (tool === "list_levies") return `Researcher read the ${LEVY_TIER_WORDS[String(d.requested)] ?? "listed"} levies in the ${actName(LEVIES_ACT)}: ${count(Number(d.row_count ?? 0), "item", "items")}`;
     if (tool === "get_sections") {
       const got = ids(d.requested).filter((id) => !ids(d.not_found).includes(id));
       if (!got.length) return "Researcher looked for sections that are not in the Acts";
@@ -134,6 +142,7 @@ export function researcherDetail(step: TraceStep): string {
     if (d.error) return `${who}: ${tool} rejected (${String(d.error)})`;
     if (tool === "run_sql") return `${who}: run_sql on ${tableOf(d.sql_run ?? d.sql_requested)}, ${rows(d.row_count)}`;
     if (tool === "browse_part") return `${who}: browse_part ${String(d.requested ?? "a Part")}, ${Number(d.row_count ?? 0)} sections`;
+    if (tool === "list_levies") return `${who}: list_levies ${String(d.requested ?? "")}, ${Number(d.row_count ?? 0)} items`;
     if (tool === "get_sections") {
       const got = ids(d.requested).filter((id) => !ids(d.not_found).includes(id));
       return `${who}: get_sections ${firstAndMore(got)}`;
@@ -171,6 +180,7 @@ export function criticDetail(step: TraceStep): string {
     return `Critic plain-words check for claim ${String(d.claim_id)} did not complete (${String(d.error)}); legal sentence shown`;
   }
   const piece = d.piece ? ` (${String(d.piece)})` : "";
+  if (d.rule === "levy_amount") return `Critic struck claim ${String(d.claim_id)}: it states an amount from the 1998 levies Act`;
   if (d.error) return `Critic could not check claim ${String(d.claim_id)}${piece}: call failed`;
   if (d.verdict === "unparseable") return `Critic reply for claim ${String(d.claim_id)}${piece} did not parse; asking again`;
   return `Critic read claim ${String(d.claim_id)}${piece}: ${String(d.verdict ?? "judged")}`;

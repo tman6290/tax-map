@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import express, { type Request, type Response } from "express";
 import { z } from "zod";
 import { corpus } from "../agents/glossary.js";
+import { isItemId, itemLabel, levies } from "../agents/levies.js";
 import type { CheckedClaim, Profile, TraceStep } from "../agents/types.js";
 import { collectorFor } from "../agents/collector.js";
 import { criticDetail, describeCriticStep, describeHandoff, describeResearcherStep, describeVerdict, handoffDetail, researcherDetail, verdictDetail } from "./describe.js";
@@ -31,7 +32,7 @@ export const RunRequestSchema = z.object({
   question: z.string().trim().min(3).max(500),
 });
 
-const SECTION_ID_RE = /^(?:NTA|NTAA|NRSEA|JRBEA)-2025-s\d+$/;
+const SECTION_ID_RE = /^(?:(?:NTA|NTAA|NRSEA|JRBEA)-2025|TLA-1998)-s\d+$/;
 const sampleMode = () => process.env.SAMPLE_MODE === "true";
 const sampleDelay = () => {
   const n = Number(process.env.SAMPLE_DELAY_MS);
@@ -218,6 +219,21 @@ export function createApiRouter(store: RunStore = new RunStore()): express.Route
 
   router.get("/sections/:id", (req: Request, res: Response) => {
     const id = String(req.params.id);
+    // a Schedule item of the levies Act: its place in the Schedule, the Part's heading and the item's text
+    const item = isItemId(id) ? levies().get(id) : undefined;
+    if (item) {
+      res.json({
+        section_id: item.item_id,
+        act_id: item.act_id,
+        kind: "schedule_item",
+        label: itemLabel(item.item_id),
+        part: item.part,
+        part_title: item.part_title,
+        item_no: item.item_no,
+        text: item.text,
+      });
+      return;
+    }
     const s = SECTION_ID_RE.test(id) ? corpus().get(id) : undefined;
     if (!s) {
       res.status(404).json({ error: "unknown section" });

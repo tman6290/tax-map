@@ -4,6 +4,24 @@
 const ROMAN = /^(?:i|ii|iii|iv|v|vi|vii|viii|ix|x|xi|xii|xiii|xiv|xv)$/;
 
 /**
+ * "NTA-2025-s143" -> { act: "NTA-2025", no: "143" }; a Schedule item "TLA-1998-sch-III-20" ->
+ * { act: "TLA-1998", part: "III", item: "20" }. Fields that do not apply are "".
+ */
+export function splitLawId(id) {
+  const item = /^(.*-\d{4})-sch-([IVX]+)-(\d+)$/.exec(id);
+  if (item) return { act: item[1], no: "", part: item[2], item: item[3] };
+  const m = /^(.*-\d{4})-s(\d+)$/.exec(id);
+  return m ? { act: m[1], no: m[2], part: "", item: "" } : { act: id, no: "", part: "", item: "" };
+}
+
+/** Where in its Act an id points: "s. 143", or "Schedule, Part III, item 20" for a Schedule item. */
+export function lawRef(id) {
+  const p = splitLawId(id);
+  if (p.item) return `Schedule, Part ${p.part}, item ${p.item}`;
+  return p.no ? `s. ${p.no}` : id;
+}
+
+/**
  * A marker starts a clause after a colon, semicolon or dash (optionally "; and" / "; or"), or at the
  * start. In an interpretation section, each `; "term" means ...` entry also starts a new paragraph.
  */

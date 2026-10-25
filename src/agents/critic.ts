@@ -4,8 +4,9 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 import type { WorldModel } from "../engines/types.js";
 import { chatWithFallback, type ChatMessage, type Receipt } from "../providers/index.js";
-import { collectorFor } from "./collector.js";
+import { collectorFor, type Collector } from "./collector.js";
 import { corpus, isGlossarySection, matchDefinitions, type CorpusSection, type GlossaryEntry } from "./glossary.js";
+import { citesLeviesAct, isItemId, LEVIES_ACT, statesAmount } from "./levies.js";
 import { PROFILE_HEADER } from "./profile.js";
 import { observedTrace } from "./trace.js";
 import type { CheckedClaim, Claim, ClaimType, CritiqueResult, Draft, Profile, SectionRead, TraceStep, Verdict } from "./types.js";
@@ -43,6 +44,18 @@ export function cleanReason(reason: string): string {
   const text = stripped.replace(BAND_TOKEN, (_m, band: string) => BAND_WORDS[band.toLowerCase()] ?? band).trim();
   // the model's sentence started after the prefix, so it may start in lower case
   return stripped !== reason ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
+
+/** Why a claim citing the levies Act is struck when it, or its plain line, states an amount. */
+export const AMOUNT_REASON =
+  "amounts in this Act are 1998 maxima and may be superseded by State law; Tax Map does not assert them";
+
+/** True when the claim cites the Taxes and Levies (Approved List for Collection) Act, a section or a Schedule item. */
+export const citesLevies = (claim: Pick<Claim, "section_ids">) => claim.section_ids.some(citesLeviesAct);
+
+/** True when a claim citing the levies Act states an amount of money in its legal sentence or its plain line. */
+export function statesLevyAmount(claim: Pick<Claim, "section_ids" | "text" | "plain">): boolean {
+  return citesLevies(claim) && (statesAmount(claim.text) || statesAmount(claim.plain ?? ""));
 }
 
 /** The plain-words check is one short call per claim, with no tools. */
@@ -233,7 +246,7 @@ function piecesOf(id: string, heading: string, text: string, max: number, labelP
   }));
 }
 
-function userMessage(profile: Profile, claim: Claim, defs: GlossaryEntry[], piece: Piece): string {
+function userMessage(profile: Profile, claim: Claim, defs: GlossaryEntry[], piece: Piece, collector?: Collector): string {
   const parts = [
     PROFILE_HEADER,
     JSON.stringify(profile, null, 2),
@@ -241,6 +254,9 @@ function userMessage(profile: Profile, claim: Claim, defs: GlossaryEntry[], piec
     `Claim type: ${claim.type ?? "obligation"} (${claim.type === "exemption" ? "the claim says a rule does NOT apply to this business" : "the claim says a rule applies to this business"})`,
     `Claim: ${claim.text}`,
   ];
+  if (collector && isItemId(piece.section_id)) {
+    parts.push(`Collector: ${collector.authority} (tier: ${collector.tier})`);
+  }
   if (defs.length) {
     parts.push("", "Definitions (authoritative for the terms they define):");
     for (const d of defs) parts.push("", `--- ${d.section_id} "${d.term}"`, d.definition);
@@ -378,8 +394,14 @@ export async function critique(
     const defs = cited.length ? matchDefinitions(claim.text, contexts) : [];
     const definitionsUsed = [...new Set(defs.map((d) => d.section_id))];
 
+    const collector = collectorFor(claim, profile);
+    const amountStruck = statesLevyAmount(claim);
     let result: Judged;
-    if (cited.length === 0) {
+    if (amountStruck) {
+      // decided without a model call: Tax Map never asserts a figure from the 1998 levies Act
+      result = { verdict: "struck", reason: AMOUNT_REASON, quote: null, quote_verified: false, qualifier: null, receipt: null };
+      trace.push({ kind: "model_turn", ts: now(), detail: { claim_id: claim.id, verdict: "struck", reason: AMOUNT_REASON, rule: "levy_amount" } });
+    } else if (cited.length === 0) {
       // nothing to judge against; cannot happen for drafts from research(), which cites only sections read
       result = {
         verdict: "struck",
@@ -393,11 +415,11 @@ export async function critique(
       const results: PieceResult[] = [];
       for (const { id, section } of operative) {
         for (const piece of piecesOf(id, section.heading, section.text, pieceChars())) {
-          const r = await judgePiece(claim, piece, defs, profile, model, receipts, trace);
+          const r = await judgePiece(claim, piece, defs, profile, model, receipts, trace, collector);
           const smaller = r.status502 ? piecesOf(id, section.heading, piece.text, FALLBACK_PIECE_CHARS, piece.label) : [];
           if (smaller.length > 1) {
             // fallback: Nightshift answered 502 on this input, so judge it again in smaller pieces
-            for (const p of smaller) results.push(await judgePiece(claim, p, defs, profile, model, receipts, trace));
+            for (const p of smaller) results.push(await judgePiece(claim, p, defs, profile, model, receipts, trace, collector));
           } else {
             results.push(r);
           }
@@ -405,8 +427,10 @@ export async function critique(
       }
       result = mergePieces(results, claim.type ?? "obligation");
     }
-    // after the verdict: does the plain-words line say anything the legal sentence does not?
-    const plainCheck = await checkPlain(claim, model, receipts, trace);
+    // after the verdict: does the plain-words line say anything the legal sentence does not? A line
+    // struck for its amount keeps no plain line, and a fix may not bring a figure from the levies Act back.
+    let plainCheck = amountStruck ? { plain: "", checked: false } : await checkPlain(claim, model, receipts, trace);
+    if (citesLevies(claim) && statesAmount(plainCheck.plain)) plainCheck = { plain: "", checked: false };
     const done: CheckedClaim = {
       claim: { ...claim, plain: plainCheck.plain },
       ...result,
@@ -414,7 +438,7 @@ export async function critique(
       definitions_used: definitionsUsed,
       definitions: defs.map((d) => ({ section_id: d.section_id, term: d.term, definition: d.definition })),
       plain_checked: plainCheck.checked,
-      collector: collectorFor(claim, profile),
+      collector,
     };
     checked.push(done);
     options.onChecked?.(done);
@@ -423,11 +447,11 @@ export async function critique(
       const s = sectionContext(id, sectionsRead[id]);
       await world.addFact({
         section_id: id,
-        act_id: s?.act_id ?? id.replace(/-s\d+$/, ""),
-        section_no: s?.section_no ?? id.replace(/^.*-s/, ""),
+        act_id: s?.act_id ?? (isItemId(id) ? LEVIES_ACT : id.replace(/-s\d+$/, "")),
+        section_no: s?.section_no ?? id.replace(/^.*-(?:sch-[IVX]+-|s)/, ""),
         heading: s?.heading ?? "",
         text: s?.text ?? "",
-        source: "taxmap.sections",
+        source: isItemId(id) ? "taxmap.levies" : "taxmap.sections",
         verdict: result.verdict,
         claim_id: claim.id,
         reason: cleanReason(result.reason),
@@ -547,12 +571,13 @@ async function judgePiece(
   model: string,
   receipts: Receipt[],
   trace: TraceStep[],
+  collector?: Collector,
 ): Promise<PieceResult> {
   const label = piece.label;
   const base = { label, struck_because: null, quote: null, quote_verified: false, qualifier: null };
   const messages: ChatMessage[] = [
     { role: "system", content: criticSystemPrompt() },
-    { role: "user", content: userMessage(profile, claim, defs, piece) },
+    { role: "user", content: userMessage(profile, claim, defs, piece, collector) },
   ];
   let receipt: Receipt | null = null;
 

@@ -1,7 +1,7 @@
 // Tax Map page: profile form, live progress over server-sent events, results with citations.
 // Plain DOM; every value from the server is set as text, never as HTML.
 
-import { lawBlocks } from "./lawtext.js";
+import { lawBlocks, lawRef, splitLawId } from "./lawtext.js";
 
 const AMAKA = {
   business_type: "sole_proprietor",
@@ -248,19 +248,17 @@ function actName(actId) {
   return (actTitles[actId] ?? actId).replace(/,\s*(\d{4})$/, " $1");
 }
 
-function splitId(sectionId) {
-  const m = /^(.*-\d{4})-s(\d+)$/.exec(sectionId);
-  return m ? { act: m[1], no: m[2] } : { act: sectionId, no: "" };
-}
-
-/** "Nigeria Tax Administration Act 2025, s. 22; Nigeria Tax Act 2025, s. 147" */
+/**
+ * "Nigeria Tax Administration Act 2025, s. 22; Nigeria Tax Act 2025, s. 147", with a Schedule item as
+ * "Taxes and Levies (Approved List for Collection) Act 1998, Schedule, Part III, item 20".
+ */
 function citation(sectionIds) {
   const byAct = new Map();
   for (const id of sectionIds) {
-    const { act, no } = splitId(id);
-    byAct.set(act, [...(byAct.get(act) ?? []), no]);
+    const { act } = splitLawId(id);
+    byAct.set(act, [...(byAct.get(act) ?? []), lawRef(id)]);
   }
-  return [...byAct].map(([act, nos]) => `${actName(act)}, ${nos.map((n) => `s. ${n}`).join(", ")}`).join("; ");
+  return [...byAct].map(([act, refs]) => `${actName(act)}, ${refs.join(", ")}`).join("; ");
 }
 
 const SMALL_WORDS = new Set(["of", "and", "the", "on", "or", "for", "in", "to", "a", "an", "by", "with", "from", "at"]);
@@ -805,9 +803,10 @@ function openDialog(dialog, opener) {
 
 async function openSection(id, term, opener) {
   const drawer = $("drawer");
-  const { act, no } = splitId(id);
+  const { act, no, item } = splitLawId(id);
   $("drawer-act").textContent = actName(act);
-  $("drawer-title").textContent = no ? `Section ${no}` : id;
+  // a Schedule item: "Schedule, Part III, item 20", with the Part's own heading below it
+  $("drawer-title").textContent = item ? lawRef(id) : no ? `Section ${no}` : id;
   $("drawer-meta").textContent = "Loading…";
   $("drawer-text").replaceChildren();
   openDialog(drawer, opener);
@@ -815,8 +814,13 @@ async function openSection(id, term, opener) {
     const res = await fetch(`/api/sections/${encodeURIComponent(id)}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const s = await res.json();
-    if (s.heading) $("drawer-title").textContent = `Section ${s.section_no ?? no}: ${s.heading}`;
-    $("drawer-meta").textContent = [s.chapter, s.part].filter(Boolean).map(headingCase).join(" · ");
+    if (s.kind === "schedule_item") {
+      $("drawer-title").textContent = s.label ?? lawRef(id);
+      $("drawer-meta").textContent = s.part_title ?? "";
+    } else {
+      if (s.heading) $("drawer-title").textContent = `Section ${s.section_no ?? no}: ${s.heading}`;
+      $("drawer-meta").textContent = [s.chapter, s.part].filter(Boolean).map(headingCase).join(" · ");
+    }
     $("drawer-text").replaceChildren(...renderLaw(s.text));
     if (term) highlightTerm($("drawer-text"), term);
   } catch {

@@ -6,6 +6,7 @@ import { runSql } from "../data/zetaris.js";
 import type { RunMemory, ScoredMemoryEntry } from "../engines/types.js";
 import { chat, type ChatMessage, type ChatResult, type Receipt, type ToolCall, type ToolDefinition } from "../providers/meterless.js";
 import { areaParts, checklistAreas, describeParts, uncoveredAreas, type ChecklistArea } from "./checklist.js";
+import { isItemId, itemHeading, type LevyPart, type LevyTier } from "./levies.js";
 import { PROFILE_HEADER } from "./profile.js";
 import { findPart, formatToc, tocEntries } from "./toc.js";
 import { observedTrace } from "./trace.js";
@@ -21,8 +22,9 @@ export const MAX_COVERAGE_TURNS = 4;
 const SQL_ROW_LIMIT = 40;
 const SNIPPET_CHARS = 500;
 const MAX_GET_SECTIONS = 10;
-const SECTION_ID_RE = /^(?:NTA|NTAA|NRSEA|JRBEA)-2025-s\d+$/;
+const SECTION_ID_RE = /^(?:(?:NTA|NTAA|NRSEA|JRBEA)-2025|TLA-1998)-s\d+$/;
 const TABLES = new Set(["taxmap.sections", "taxmap.acts"]);
+const LEVY_TIERS: LevyTier[] = ["federal", "state", "lga"];
 
 export const TOOLS: ToolDefinition[] = [
   {
@@ -49,7 +51,7 @@ export const TOOLS: ToolDefinition[] = [
       parameters: {
         type: "object",
         properties: {
-          act_id: { type: "string", enum: ["NTA-2025", "NTAA-2025", "NRSEA-2025", "JRBEA-2025"] },
+          act_id: { type: "string", enum: ["NTA-2025", "NTAA-2025", "NRSEA-2025", "JRBEA-2025", "TLA-1998"] },
           chapter: { type: "string" },
           part: { type: "string" },
         },
@@ -61,13 +63,29 @@ export const TOOLS: ToolDefinition[] = [
     type: "function",
     function: {
       name: "get_sections",
-      description: "Return the full verbatim text of up to 10 sections by section_id, e.g. NTA-2025-s9.",
+      description:
+        "Return the full verbatim text of up to 10 sections by section_id, e.g. NTA-2025-s9. " +
+        "Schedule item_ids from list_levies (e.g. TLA-1998-sch-III-1) are accepted too.",
       parameters: {
         type: "object",
         properties: {
           section_ids: { type: "array", items: { type: "string" }, maxItems: MAX_GET_SECTIONS },
         },
         required: ["section_ids"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_levies",
+      description:
+        "List every item the Taxes and Levies (Approved List for Collection) Act 1998 Schedule gives one tier to collect: " +
+        "federal (Part I), state (Part II) or lga (Part III). Returns item_id, part, item_no and the item's full verbatim text.",
+      parameters: {
+        type: "object",
+        properties: { tier: { type: "string", enum: LEVY_TIERS } },
+        required: ["tier"],
       },
     },
   },
@@ -211,17 +229,46 @@ async function execTool(call: ToolCall): Promise<ToolOutcome> {
         return toolError(tool, "get_sections needs a non-empty array of section_id strings.");
       }
       if (ids.length > MAX_GET_SECTIONS) return toolError(tool, `At most ${MAX_GET_SECTIONS} section_ids per call.`);
-      const bad = ids.filter((id) => !SECTION_ID_RE.test(id));
-      if (bad.length) return toolError(tool, `Not valid section_ids: ${bad.join(", ")}. Expected e.g. NTA-2025-s9.`);
-      const list = ids.map((id) => `'${id}'`).join(", ");
-      const sql = `SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN (${list})`;
-      const res = await runSql(sql);
-      const rows = toRows(res.columns, res.rows, false);
+      const bad = ids.filter((id) => !SECTION_ID_RE.test(id) && !isItemId(id));
+      if (bad.length) return toolError(tool, `Not valid section_ids: ${bad.join(", ")}. Expected e.g. NTA-2025-s9 or TLA-1998-sch-III-1.`);
+      // sections come from taxmap.sections, Schedule items from taxmap.levies
+      const sectionIds = ids.filter((id) => !isItemId(id));
+      const itemIds = ids.filter(isItemId);
+      const queries: string[] = [];
+      const rows: Row[] = [];
+      if (sectionIds.length) {
+        const sql = `SELECT section_id, act_id, section_no, heading, tier, text FROM taxmap.sections WHERE section_id IN (${sectionIds.map(sqlString).join(", ")})`;
+        const res = await runSql(sql);
+        queries.push(sql);
+        rows.push(...toRows(res.columns, res.rows, false));
+      }
+      if (itemIds.length) {
+        const sql = `SELECT ${LEVY_SELECT} FROM taxmap.levies WHERE item_id IN (${itemIds.map(sqlString).join(", ")})`;
+        const res = await runSql(sql);
+        queries.push(sql);
+        rows.push(...levyRows(res.columns, res.rows));
+      }
       const found = new Set(rows.map((r) => String(r.section_id)));
       const missing = ids.filter((id) => !found.has(id));
       return {
         content: JSON.stringify({ sections: rows, ...(missing.length ? { not_found: missing } : {}) }),
-        detail: { tool, requested: ids, sql_run: sql, row_count: rows.length, not_found: missing },
+        detail: { tool, requested: ids, sql_run: queries.join("\n"), row_count: rows.length, not_found: missing },
+        rows,
+      };
+    }
+
+    if (tool === "list_levies") {
+      const tier = args.tier;
+      if (typeof tier !== "string" || !LEVY_TIERS.includes(tier as LevyTier)) {
+        return toolError(tool, "list_levies needs tier: federal, state or lga.");
+      }
+      const sql = `SELECT ${LEVY_SELECT} FROM taxmap.levies WHERE tier = ${sqlString(tier)} ORDER BY CAST(item_no AS INT)`;
+      const res = await runSql(sql);
+      const rows = levyRows(res.columns, res.rows);
+      const items = rows.map((r) => ({ item_id: r.item_id, part: r.part, item_no: r.item_no, text: r.text }));
+      return {
+        content: JSON.stringify({ tier, part_title: rows[0]?.part_title ?? null, items }),
+        detail: { tool, requested: tier, sql_run: sql, row_count: rows.length },
         rows,
       };
     }
@@ -231,7 +278,30 @@ async function execTool(call: ToolCall): Promise<ToolOutcome> {
       requested: args.section_ids,
     });
   }
-  return toolError(tool, `Unknown tool '${tool}'. Use browse_part, run_sql or get_sections.`);
+  return toolError(tool, `Unknown tool '${tool}'. Use browse_part, run_sql, get_sections or list_levies.`);
+}
+
+const LEVY_SELECT = "item_id, act_id, part, part_title, tier, item_no, text";
+
+/**
+ * Schedule items as citable rows: `section_id` is the item_id (so citing, reading and the Critic treat
+ * an item like a section), `heading` names its place in the Schedule and the Part's own heading.
+ */
+export function levyRows(columns: string[], rows: unknown[][]): Row[] {
+  return toRows(columns, rows, false).map((r) => {
+    const itemId = String(r.item_id ?? "");
+    return {
+      section_id: itemId,
+      item_id: itemId,
+      act_id: r.act_id,
+      part: r.part as LevyPart,
+      part_title: r.part_title,
+      item_no: String(r.item_no ?? ""),
+      heading: itemHeading({ item_id: itemId, part_title: String(r.part_title ?? "") }),
+      tier: r.tier,
+      text: r.text,
+    };
+  });
 }
 
 const EXEMPTION_WORDING = /\b(?:exempt|not (?:required|liable|obliged|chargeable)|does not apply|shall not apply|need not|is not subject)\b/i;
@@ -354,7 +424,23 @@ function taskMessage(profile: Profile, question: string): string {
       "relevant to the profile (for example, provisions that define a small company or exempt small businesses) and cite them. " +
       "If a section you have read contains a subsection that disapplies the rule for this profile, say so in the claim text " +
       "or move the point to notes.",
+    ...levySteer(profile),
   ].join("\n");
+}
+
+/**
+ * For a business with signage or premises, a pointer to Part III of the Schedule (what the local
+ * government may collect). It names the kind of item, never an item number, so the model reads the list.
+ */
+export function levySteer(profile: Profile): string[] {
+  const has = [profile.has_signage && "signage", profile.has_premises && "business premises"].filter(Boolean);
+  if (!has.length) return [];
+  return [
+    "",
+    `This business has ${has.join(" and ")}. Call list_levies with tier "lga" and check Part III of the Schedule of the ` +
+      "Taxes and Levies (Approved List for Collection) Act for permit and premises items that may apply to it. " +
+      "Cite each item that does by its item_id, and say only that the local government may collect it.",
+  ];
 }
 
 const REPEAT_PREFIX = "ALREADY RUN; use browse_part or get_sections instead";
@@ -376,9 +462,12 @@ export function canonicalSql(sql: string): string {
 }
 
 const DASH = "[‐-―−-]"; // hyphen, non-breaking hyphen, en/em dashes, minus
-const NOTE_ID_RE = new RegExp(`\\b(NTA|NTAA|NRSEA|JRBEA)\\s*${DASH}\\s*2025\\s*${DASH}\\s*s(\\d+)\\b`, "gi");
+const NOTE_ID_RE = new RegExp(`\\b(NTA|NTAA|NRSEA|JRBEA|TLA)\\s*${DASH}\\s*(2025|1998)\\s*${DASH}\\s*s(\\d+)\\b`, "gi");
+const NOTE_ITEM_RE = new RegExp(`\\bTLA\\s*${DASH}\\s*1998\\s*${DASH}\\s*sch\\s*${DASH}\\s*(I|II|III)\\s*${DASH}\\s*(\\d+)\\b`, "gi");
 const NOTE_RANGE_RE = new RegExp(`\\bs(\\d+)\\s*${DASH}\\s*s?(\\d+)\\b`, "gi");
-const NOTE_ACT_RE = /\b(NTA|NTAA|NRSEA|JRBEA)\b/gi;
+const NOTE_ACT_RE = /\b(NTA|NTAA|NRSEA|JRBEA|TLA)\b/gi;
+/** The act_id for the short name a note uses. */
+const NOTE_ACT_ID = (name: string) => (name === "TLA" ? "TLA-1998" : `${name}-2025`);
 
 /** Section numbers per Act, from the parsed sections. */
 function actSections(): Map<string, Set<number>> {
@@ -395,7 +484,7 @@ function actSections(): Map<string, Set<number>> {
 function rangeRead(note: string, at: number, lo: number, hi: number, fetched: Set<string>): boolean {
   const acts = actSections();
   const named = [...note.slice(0, at).matchAll(NOTE_ACT_RE)].at(-1)?.[1]?.toUpperCase();
-  const candidates = named ? [`${named}-2025`] : [...acts.keys()];
+  const candidates = named ? [NOTE_ACT_ID(named)] : [...acts.keys()];
   return candidates.some((act) => {
     const ids = [...(acts.get(act) ?? [])].filter((n) => n >= lo && n <= hi).map((n) => `${act}-s${n}`);
     return ids.length > 0 && ids.every((id) => fetched.has(id));
@@ -457,7 +546,10 @@ export function filterAbsenceNotes(notes: string[], unanswered: string[], profil
 /** Replaces any note that names a section_id, or a range of sections, the run did not read in full. */
 export function filterNotes(notes: string[], fetched: Set<string>): string[] {
   return notes.map((n) => {
-    const ids = [...n.matchAll(NOTE_ID_RE)].map((m) => `${(m[1] ?? "").toUpperCase()}-2025-s${m[2]}`);
+    const ids = [
+      ...[...n.matchAll(NOTE_ID_RE)].map((m) => `${(m[1] ?? "").toUpperCase()}-${m[2]}-s${m[3]}`),
+      ...[...n.matchAll(NOTE_ITEM_RE)].map((m) => `TLA-1998-sch-${(m[1] ?? "").toUpperCase()}-${m[2]}`),
+    ];
     const ranges = [...n.matchAll(NOTE_RANGE_RE)].map((m) => {
       const a = Number(m[1]);
       const b = Number(m[2]);
@@ -527,6 +619,8 @@ export async function research(
       key = `sql:${canonicalSql(guard.sql)}`;
     } else if (call.function.name === "get_sections" && Array.isArray(args.section_ids)) {
       key = `get:${[...new Set(args.section_ids.map(String))].sort().join(",")}`;
+    } else if (call.function.name === "list_levies" && typeof args.tier === "string") {
+      key = `levies:${args.tier}`;
     } else {
       return undefined;
     }
@@ -543,29 +637,31 @@ export async function research(
     if (rep?.earlier !== undefined) {
       repeats++;
       if (repeats >= MAX_REPEATS) finalEarly = true;
-      const prior = JSON.parse(rep.earlier) as { row_count?: number; sections?: unknown[] };
-      const rowCount = prior.row_count ?? prior.sections?.length ?? 0;
+      const prior = JSON.parse(rep.earlier) as { row_count?: number; sections?: unknown[]; items?: unknown[] };
+      const rowCount = prior.row_count ?? prior.sections?.length ?? prior.items?.length ?? 0;
       const tool = call.function.name;
       trace.push({ kind: "tool_result", ts: now(), detail: { tool, repeat: repeats, row_count: rowCount, by } });
       return { content: `${REPEAT_PREFIX}\n${rep.earlier}`, detail: { tool, repeat: repeats }, rows: [] };
     }
     const out = await execTool(call);
     if (rep && !out.detail.error) toolResults.set(rep.key, out.content);
-    if (call.function.name === "get_sections") {
+    // list_levies returns each Schedule item's full text, so its items count as read in full
+    const readsInFull = call.function.name === "get_sections" || call.function.name === "list_levies";
+    if (readsInFull) {
       for (const r of out.rows) {
         if (typeof r.section_id !== "string") continue;
         sectionsRead[r.section_id] = {
           heading: String(r.heading ?? ""),
           text: String(r.text ?? ""),
           act_id: String(r.act_id ?? ""),
-          section_no: String(r.section_no ?? ""),
+          section_no: String(r.section_no ?? r.item_no ?? ""),
         };
       }
     }
     trace.push({ kind: "tool_result", ts: now(), detail: { ...out.detail, by } });
     const ids = out.rows.map((r) => r.section_id).filter((x): x is string => typeof x === "string");
     ids.forEach((id) => seen.add(id));
-    if (call.function.name === "get_sections") ids.forEach((id) => fetched.add(id));
+    if (readsInFull) ids.forEach((id) => fetched.add(id));
     if (typeof out.detail.sql_requested === "string") st.queries.push(out.detail.sql_requested);
     for (const r of out.rows) {
       if (typeof r.section_id !== "string") continue;
@@ -624,12 +720,24 @@ export async function research(
     const missing = uncoveredAreas(current.claims, profile).slice(0, MAX_COVERAGE_TURNS);
     if (missing.length === 0) return undefined;
     const fetchedNow: Row[] = [];
+    const levyLines: string[] = []; // Schedule items listed for area (f), shown whole to the revision turn
     let working = current;
 
     for (const area of missing) {
       targetedAreas.push(area.key);
       const parts = areaParts(area);
       const listing: string[] = [];
+      if (area.levies) {
+        for (const tier of ["state", "lga"] as const) {
+          const out = await runTool(
+            { id: `agent_levies_${tier}`, type: "function", function: { name: "list_levies", arguments: JSON.stringify({ tier }) } },
+            "agent",
+          );
+          const lines = out.rows.map((r) => `${String(r.section_id)}: ${String(r.text ?? "")}`);
+          levyLines.push(...lines.map((l) => `- ${l}`));
+          listing.push(`Schedule, Part ${String(out.rows[0]?.part ?? "")} (${String(out.rows[0]?.part_title ?? tier)}):\n  ${lines.join("\n  ")}`);
+        }
+      }
       for (const [i, e] of parts.entries()) {
         const out = await runTool(
           {
@@ -649,7 +757,8 @@ export async function research(
         `Checklist area (${area.key}) ${area.label} is not covered by any claim in your draft (above). An entry in unanswered does not count.\n` +
         `Relevant Parts from the Map of the Acts: ${describeParts(parts)}.\n\nSections in those Parts:\n${listing.join("\n")}\n\n` +
         "Call get_sections once with the sections (at most 6) that decide this area for this business, including any " +
-        "interpretation section whose definitions the area turns on. Do not draft yet: you will revise the draft next.";
+        "interpretation section whose definitions the area turns on. Do not draft yet: you will revise the draft next." +
+        (area.levies ? " The Schedule items listed are already read in full: cite them by item_id without fetching them again." : "");
       const res = await chat(
         {
           messages: [
@@ -695,7 +804,12 @@ export async function research(
           "existing claims, add a claim (obligation or exemption) for each of these areas the text settles for this business, " +
           "citing the sections and the definitions it turns on, and for any area the text does not settle add an entry to " +
           "unanswered saying what you looked for. Reply with only the Draft JSON.\n\n" +
-          JSON.stringify(texts),
+          JSON.stringify(texts) +
+          (levyLines.length
+            ? "\n\nSchedule items of the Taxes and Levies (Approved List for Collection) Act 1998, read in full. Cite an item by its " +
+              "item_id; a claim on one says only that the authority may collect the levy, and states no amount:\n" +
+              levyLines.join("\n")
+            : ""),
       },
     ];
     // one correction when the revision does not parse, as in the main loop; then keep the earlier draft

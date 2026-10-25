@@ -47,7 +47,8 @@ describe("Map of the Acts", () => {
     expect(prompt).toContain("NTA-2025: Nigeria Tax Act, 2025");
     expect(prompt).toContain("s143-s150 | chapter: CHAPTER SIX VALUE ADDED TAX | part: PART I – IMPOSITION OF VALUE ADDED TAX");
     expect(prompt).toContain("chapter: (none) | part: PART I – OBJECTIVE AND APPLICATION"); // NRSEA has no chapters
-    expect(tocEntries()).toHaveLength(50);
+    expect(prompt).toContain("TLA-1998: Taxes and Levies (Approved List for Collection) Act, 1998\n  s1-s5 | chapter: (none) | part: (none)");
+    expect(tocEntries()).toHaveLength(51);
   });
 
   it("resolves parts by full heading or label, and refuses ambiguous ones", () => {

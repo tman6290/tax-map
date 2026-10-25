@@ -6,6 +6,7 @@
 - NTAA-2025: 148
 - NRSEA-2025: 43
 - JRBEA-2025: 61
+- TLA-1998: 5
 
 ## 5 shortest sections
 
@@ -37,6 +38,7 @@ None.
 - NTAA-2025: 7 of 148 (sections: 16, 20, 34, 46, 104, 123, 138)
 - NRSEA-2025: 2 of 43 (sections: 7, 38)
 - JRBEA-2025: 0 of 61 (sections: none)
+- TLA-1998: 0 of 5 (sections: none)
 
 Headings are the margin notes printed beside each section. Words the text layer glued across the
 body/margin boundary are split by character position; the remaining gaps are sections whose margin
@@ -52,8 +54,17 @@ joined; that is a known limitation of the rule. The same rule is applied inside 
 
 ## Not included
 
-Schedule text is excluded: each Act's text stops at its first Schedule heading.
+Schedule text of the 2025 Acts is excluded: each Act's text stops at its first Schedule heading.
 - NTA-2025: has Schedules (first heading found: "SCHEDULES")
 - NTAA-2025: has Schedules (first heading found: "SCHEDULES")
 - NRSEA-2025: has Schedules (first heading found: "SCHEDULES")
 - JRBEA-2025: has Schedules (first heading found: "SCHEDULES")
+
+## TLA-1998 Schedule (levies.json)
+
+The Schedule of the Taxes and Levies (Approved List for Collection) Act is parsed item by item into
+`levies.json`, as printed in 1998. Nothing from the 2015 Amendment Order is included.
+
+- Part I (federal), "Taxes to be collected by the Federal Government": 8 items
+- Part II (state), "Taxes and levies to be collected by the State Government": 11 items
+- Part III (lga), "Taxes and levies to be collected by the local government": 20 items

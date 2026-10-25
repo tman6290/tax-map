@@ -1,7 +1,8 @@
-"""Parse the four Nigerian tax Acts (gazette/ctc PDFs) into section-level JSON.
+"""Parse the four 2025 Nigerian tax Acts (gazette/ctc PDFs) and the Taxes and Levies (Approved List for
+Collection) Act 1998 (other/) into section-level JSON, and that Act's Schedule into item-level JSON.
 
 PDFs live outside the repo; set TAXMAP_ACTS_DIR to override the default location.
-Outputs: data/statutes/{sections.json,acts.json,parse_report.md}.
+Outputs: data/statutes/{sections.json,acts.json,levies.json,parse_report.md}.
 
 Layout notes: each Act prints the section heading as a margin note in a column to
 the right of the body text. Words are split by x-position into body vs margin so
@@ -77,8 +78,28 @@ def sha256(path: Path) -> str:
 
 
 def read_hashes(folder: Path) -> dict[str, str]:
+    """File name -> SHA-256 from a folder's hashes.txt.
+
+    Two formats: "<hash>  <name>" lines (gazette/, ctc/), or PowerShell Get-FileHash list output
+    ("Path : <full path>" then "Hash : <hash>", UTF-16 with a BOM) as in other/.
+    """
+    raw = (folder / "hashes.txt").read_bytes()
+    text = raw.decode("utf-16") if raw[:2] in (b"\xff\xfe", b"\xfe\xff") else raw.decode("utf-8-sig")
+    lines = text.splitlines()
     out = {}
-    for line in (folder / "hashes.txt").read_text(encoding="utf-8-sig").splitlines():
+    if any(re.match(r"^\s*Path\s*:", ln) for ln in lines):
+        path = None
+        for line in lines:
+            m = re.match(r"^\s*(Path|Hash)\s*:\s*(.+?)\s*$", line)
+            if not m:
+                continue
+            if m.group(1) == "Path":
+                path = m.group(2)
+            elif path:
+                out[re.split(r"[\\/]", path)[-1]] = m.group(2).upper()
+                path = None
+        return out
+    for line in lines:
         parts = line.split()
         if len(parts) >= 2:
             out[parts[-1]] = parts[0].upper()
@@ -318,6 +339,122 @@ def parse_act(cfg: dict, pdf_path: Path) -> tuple[list[dict], str | None]:
     return sections, schedule_heading
 
 
+# The Taxes and Levies (Approved List for Collection) Act (Cap. T2, LFN), 1998 Schedule only: the 2015
+# Amendment Order was set aside by the Federal High Court in 2020 and nothing from it is included.
+TLA = {
+    "act_id": "TLA-1998",
+    "act_title": "Taxes and Levies (Approved List for Collection) Act, 1998",
+    "short_title": "Taxes and Levies (Approved List for Collection) Act",
+    "year": 1998,
+    "file": "other/Nigeria_8_NigeriaTaxesLevies1998.pdf",
+}
+# Schedule Part -> the tier s. 1(1) makes responsible for collecting it
+TLA_PART_TIER = {"I": "federal", "II": "state", "III": "lga"}
+TLA_HEADER_RE = re.compile(r"^(?:• Laws • Subsidiary Legislation •|LAWS)$")
+
+
+def parse_tla(pdf_path: Path) -> tuple[list[dict], list[dict]]:
+    """Return (sections, schedule items) of the Act.
+
+    One text column, no margin notes: each section starts with "<n>. <heading>" on its own line and the
+    Schedule lists "PART I" .. "PART III", each followed by its heading line and items "1.", "2.", ...
+    The body starts after "[Commencement.]" (the arrangement of sections before it repeats the headings),
+    and the Schedule ends at the compilation's "CHAPTER T2" trailer.
+    """
+    lines: list[tuple[int, str]] = []
+    with pdfplumber.open(pdf_path) as pdf:
+        for pno, page in enumerate(pdf.pages, start=1):
+            for ln in (page.extract_text() or "").splitlines():
+                ln = ln.strip()
+                if ln and not TLA_HEADER_RE.match(ln):
+                    lines.append((pno, ln))
+
+    sections: list[dict] = []
+    items: list[dict] = []
+    started = in_schedule = False
+    expected = 1
+    cur: dict | None = None
+    part = None
+    part_title = ""
+    want_title = False
+    for pno, text in lines:
+        if not started:
+            started = text == "[Commencement.]"
+            continue
+        if not in_schedule:
+            if text == "Schedule":
+                in_schedule, cur = True, None
+                continue
+            m = re.match(rf"^{expected}\.\s+(.+)$", text)
+            if m:
+                cur = {"section_no": str(expected), "heading": m.group(1).strip(), "_parts": [], "page_start": pno, "page_end": pno}
+                sections.append(cur)
+                expected += 1
+            elif cur is not None:
+                cur["_parts"].append(text)
+                cur["page_end"] = pno
+            continue
+        if text.startswith("CHAPTER T2"):
+            break
+        if text == "[Section 1.]":
+            continue
+        m = re.match(r"^PART\s+([IVX]+)$", text)
+        if m:
+            part, want_title, expected, cur = m.group(1), True, 1, None
+            continue
+        if want_title:
+            part_title, want_title = text, False
+            continue
+        m = re.match(rf"^{expected}\.\s+(.+)$", text)
+        if m and part:
+            cur = {"part": part, "part_title": part_title, "item_no": str(expected), "_parts": [m.group(1)], "page": pno}
+            items.append(cur)
+            expected += 1
+        elif cur is not None:
+            cur["_parts"].append(text)
+    for s in sections + items:
+        s["text"] = join_lines(s.pop("_parts"))
+    return sections, items
+
+
+def tla_records(pdf_path: Path, digest: str) -> tuple[list[dict], list[dict]]:
+    secs, items = parse_tla(pdf_path)
+    sections = [
+        {
+            "section_id": f"{TLA['act_id']}-s{s['section_no']}",
+            "act_id": TLA["act_id"],
+            "act_title": TLA["act_title"],
+            "section_no": s["section_no"],
+            "heading": s["heading"],
+            "text": s["text"],
+            "chapter": None,
+            "part": None,
+            "tier": "federal",
+            "source_file": TLA["file"],
+            "source_sha256": digest,
+            "page_start": s["page_start"],
+            "page_end": s["page_end"],
+        }
+        for s in secs
+    ]
+    levies = [
+        {
+            "item_id": f"{TLA['act_id']}-sch-{i['part']}-{i['item_no']}",
+            "act_id": TLA["act_id"],
+            "part": i["part"],
+            "part_title": i["part_title"],
+            "tier": TLA_PART_TIER[i["part"]],
+            "item_no": i["item_no"],
+            "text": i["text"],
+            "source_file": TLA["file"],
+            "source_sha256": digest,
+            "page": i["page"],
+        }
+        for i in items
+    ]
+    return sections, levies
+
+
 def main() -> int:
     OUT.mkdir(parents=True, exist_ok=True)
     all_sections: list[dict] = []
@@ -366,13 +503,37 @@ def main() -> int:
         )
         print(f"{cfg['act_id']}: {len(secs)} sections")
 
+    pdf_path = ACTS_DIR / TLA["file"]
+    digest = sha256(pdf_path)
+    listed = read_hashes(pdf_path.parent).get(pdf_path.name)
+    if listed != digest:
+        print(f"HASH {'MISMATCH' if listed else 'NOT LISTED'} for {pdf_path.name}", file=sys.stderr)
+        return 1
+    tla_sections, levies = tla_records(pdf_path, digest)
+    all_sections += tla_sections
+    acts_out.append(
+        {
+            "act_id": TLA["act_id"],
+            "act_title": TLA["act_title"],
+            "short_title": TLA["short_title"],
+            "year": TLA["year"],
+            "tier": "federal",
+            "source_file": TLA["file"],
+            "source_sha256": digest,
+            "section_count": len(tla_sections),
+        }
+    )
+    per_part = collections.Counter(i["part"] for i in levies)
+    print(f"{TLA['act_id']}: {len(tla_sections)} sections; Schedule items " + ", ".join(f"Part {p} {n}" for p, n in per_part.items()))
+
     (OUT / "sections.json").write_text(json.dumps(all_sections, ensure_ascii=False, indent=2), encoding="utf-8")
     (OUT / "acts.json").write_text(json.dumps(acts_out, ensure_ascii=False, indent=2), encoding="utf-8")
-    write_report(all_sections, acts_out, schedules)
+    (OUT / "levies.json").write_text(json.dumps(levies, ensure_ascii=False, indent=2), encoding="utf-8")
+    write_report(all_sections, acts_out, schedules, levies)
     return 0
 
 
-def write_report(sections, acts, schedules):
+def write_report(sections, acts, schedules, levies):
     lines = ["# Parse report", "", "## Sections per Act", ""]
     for a in acts:
         lines.append(f"- {a['act_id']}: {a['section_count']}")
@@ -412,11 +573,25 @@ def write_report(sections, acts, schedules):
         "",
         "## Not included",
         "",
-        "Schedule text is excluded: each Act's text stops at its first Schedule heading.",
+        "Schedule text of the 2025 Acts is excluded: each Act's text stops at its first Schedule heading.",
     ]
     for a in acts:
+        if a["act_id"] == TLA["act_id"]:
+            continue
         sched = schedules.get(a["act_id"])
         lines.append(f"- {a['act_id']}: " + (f'has Schedules (first heading found: "{sched}")' if sched else "no Schedule heading found"))
+    lines += [
+        "",
+        f"## {TLA['act_id']} Schedule (levies.json)",
+        "",
+        "The Schedule of the Taxes and Levies (Approved List for Collection) Act is parsed item by item into",
+        "`levies.json`, as printed in 1998. Nothing from the 2015 Amendment Order is included.",
+        "",
+    ]
+    for part in TLA_PART_TIER:
+        mine = [i for i in levies if i["part"] == part]
+        title = mine[0]["part_title"] if mine else "(not found)"
+        lines.append(f"- Part {part} ({TLA_PART_TIER[part]}), \"{title}\": {len(mine)} items")
     (OUT / "parse_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 

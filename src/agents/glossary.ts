@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { LEVIES_ACT } from "./levies.js";
 
 /** One defined term from an interpretation section. */
 export interface GlossaryEntry {
@@ -59,8 +60,9 @@ export const MAX_DEFINITIONS = 8;
  * An entry starts with a quoted term at the start of the text or after ; . : or a dash, followed by
  * lowercase text: `"small business" means ...` or, as in NTA s201, `"small company" a business ...`.
  * A quoted word inside a definition (`includes "x"`) follows a word, so it does not start an entry.
+ * The 1998 Act prints a bracketed enactment note ("[1993 No. 104.]") between two entries.
  */
-const ENTRY_RE = /(?:^|[;.:—–-]\s*|\bAct\s*)["“]([^"”]{2,80})["”]\s*,?\s+(?=[a-z(])/g;
+const ENTRY_RE = /(?:^|[;.:—–-]\s*|\bAct\s*|\]\s*)["“]([^"”]{2,80})["”]\s*,?\s+(?=[a-z(])/g;
 
 function interpretationCandidate(s: CorpusSection): boolean {
   return /interpretation/i.test(s.heading ?? "") || /interpretation/i.test(s.part ?? "");
@@ -132,9 +134,10 @@ function resolveTerm(entries: GlossaryEntry[], cited: CorpusSection[]): Glossary
     if (local) return local;
   }
   const acts = new Set(cited.map((s) => s.act_id));
+  // the 1998 levies Act's definitions apply only to claims citing it, never to the 2025 Acts' terms
   return (
     entries.find((e) => acts.has(e.act_id) && e.scope === "act") ??
-    entries.find((e) => e.scope === "act")
+    entries.find((e) => e.scope === "act" && e.act_id !== LEVIES_ACT)
   );
 }
 

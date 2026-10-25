@@ -12,8 +12,8 @@ export const FORGET_BELOW = 0.05;
 /** The short-term memories of recent runs kept for the next run (they decay fast). */
 const SPILL_LIMIT = 300;
 
-const SECTION_RE = /\b(?:NTA|NTAA|NRSEA|JRBEA)-2025-s\d+\b/g;
-const ACT_RE = /\b(?:NTAA|NRSEA|JRBEA|NTA)-2025\b/g;
+const SECTION_RE = /\b(?:(?:NTA|NTAA|NRSEA|JRBEA)-2025|TLA-1998)-s(?:\d+|ch-(?:I|II|III)-\d+)\b/g;
+const ACT_RE = /\b(?:(?:NTAA|NRSEA|JRBEA|NTA)-2025|TLA-1998)\b/g;
 
 const hash = (s: string) => createHash("sha1").update(s).digest("hex").slice(0, 16);
 
@@ -94,7 +94,7 @@ export class MemoryStoreService {
   /** Normalisation and enrichment (H-MEM spec §7): domain, namespace, entities, related memories. */
   private enrich(r: MemoryRecord): void {
     const sections = r.content.match(SECTION_RE) ?? [];
-    const acts: string[] = [...(r.content.match(ACT_RE) ?? []), ...sections.map((s) => s.replace(/-s\d+$/, ""))];
+    const acts: string[] = [...(r.content.match(ACT_RE) ?? []), ...sections.map((s) => s.replace(/-s(?:\d+|ch-.*)$/, ""))];
     r.entities = [...new Set([...sections, ...acts, ...r.tags.filter((t) => /^[a-z_]+$/.test(t))])].slice(0, 10);
     r.domain = r.domain || (r.source.startsWith("tool:") ? "tooling" : r.source.startsWith("critic") ? "verification" : "orchestration");
     r.namespace = `${r.domain}/${r.source.replace(/^tool:/, "").replace(/[^a-z_]+/gi, "_").toLowerCase()}`;

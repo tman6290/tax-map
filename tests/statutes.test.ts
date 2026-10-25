@@ -13,8 +13,8 @@ const sections: Section[] = JSON.parse(
 );
 
 describe("data/statutes/sections.json", () => {
-  it("contains four distinct act_ids", () => {
-    expect(new Set(sections.map((s) => s.act_id)).size).toBe(4);
+  it("contains the four 2025 Acts and the 1998 levies Act", () => {
+    expect([...new Set(sections.map((s) => s.act_id))]).toEqual(["NTA-2025", "NTAA-2025", "NRSEA-2025", "JRBEA-2025", "TLA-1998"]);
   });
 
   it("has 202 sections in the Nigeria Tax Act (FGP copy)", () => {

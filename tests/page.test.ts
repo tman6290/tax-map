@@ -179,7 +179,7 @@ describe("page copy", () => {
   });
 
   it("renders the drawer text with nested lists from lawtext.js", () => {
-    expect(js).toContain('import { lawBlocks } from "./lawtext.js";');
+    expect(js).toContain('import { lawBlocks, lawRef, splitLawId } from "./lawtext.js";');
     expect(js).toContain("$(\"drawer-text\").replaceChildren(...renderLaw(s.text))");
     expect(read("styles.css")).toMatch(/\.law-list \.law-list \{/);
   });
