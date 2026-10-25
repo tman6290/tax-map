@@ -1,5 +1,7 @@
+import { checklistAreas, type ChecklistArea } from "../agents/checklist.js";
+import { cleanReason } from "../agents/critic.js";
 import { isItemId, itemLabel, LEVIES_ACT } from "../agents/levies.js";
-import type { CheckedClaim, TraceStep } from "../agents/types.js";
+import type { CheckedClaim, Draft, Profile, TraceStep } from "../agents/types.js";
 
 type D = Record<string, unknown>;
 
@@ -213,4 +215,118 @@ export function describeHandoff(claims: number, sections: number, prior: number)
 
 export function handoffDetail(claims: number, sections: number, prior: number): string {
   return `Researcher finished: ${claims} claims from ${sections} sections read${prior ? `, using ${prior} memories from earlier runs` : ""}. Critic started`;
+}
+
+/* ------------------------------------------------------------------ unanswered and notes, for the page */
+
+/** The coverage line the Researcher adds for an area with no claim (src/agents/researcher.ts). */
+const CHECKLIST_LINE = /^Checklist \(([a-f])\) (.+?): (?:no claim after a targeted search of .*|not searched in a targeted turn.*)$/;
+/** Notes the agent writes about its own filtering: run log only. */
+const HOUSEKEEPING =
+  /^(?:Removed \d+ note|Dropped (?:section_ids|claims)|Cited but not read|Coverage revision|Used the draft|Kept the draft|Model reply could not be parsed|Stopped after|note removed: unread section)/;
+/** A note that only says something was not found: dropped when "Not answered" already covers its area. */
+const ABSENCE = /not found|not loaded|not read|not in the loaded|does not contain|no explicit|no section/i;
+export const NOT_CONFIRMED = "the check could not confirm this from the Acts";
+
+/** The Acts by the name a reader uses, with the year. */
+const ACT_LONG: Record<string, string> = {
+  "NTA-2025": "Nigeria Tax Act 2025",
+  "NTAA-2025": "Nigeria Tax Administration Act 2025",
+  "NRSEA-2025": "Nigeria Revenue Service (Establishment) Act 2025",
+  "JRBEA-2025": "Joint Revenue Board of Nigeria (Establishment) Act 2025",
+  "TLA-1998": "Taxes and Levies (Approved List for Collection) Act 1998",
+};
+/** "<tool> was called", as what was done. */
+const TOOL_DONE: Record<string, string> = {
+  get_sections: "the section was read",
+  list_levies: "the list of levies was read",
+  browse_part: "the Act was browsed",
+  run_sql: "a search was run",
+};
+const TOOL_WORDS: Record<string, string> = {
+  get_sections: "reading the section",
+  list_levies: "the list of levies",
+  browse_part: "browsing the Act",
+  run_sql: "a search",
+};
+
+/**
+ * Text from the agents in words for the business owner: section and Schedule ids as citations
+ * ("Nigeria Tax Administration Act 2025, s. 14"), no tool names, no talk of turns, no database names,
+ * profile band tokens as words.
+ */
+export function pageText(raw: string): string {
+  let s = raw;
+  s = s.replace(/\bTLA-1998-sch-(I|II|III)-(\d+)\b/g, (_m, part: string, no: string) => `${ACT_LONG[LEVIES_ACT]}, Schedule, Part ${part}, item ${no}`);
+  s = s.replace(/\b((?:NTA|NTAA|NRSEA|JRBEA)-2025|TLA-1998)-s(\d+)((?:\(\w+\))*)/g, (_m, act: string, no: string, sub: string) => `${ACT_LONG[act]}, s. ${no}${sub}`);
+  s = s.replace(/\b((?:NTA|NTAA|NRSEA|JRBEA)-2025|TLA-1998)\b(?:\s+(?=s\d))?/g, (_m, act: string) => `${ACT_LONG[act]}${/\s$/.test(_m) ? ", " : ""}`);
+  s = s.replace(/\bs(\d+)\b/g, "s. $1");
+  s = s.replace(/\b(get_sections|list_levies|browse_part|run_sql)\s+was\s+(?:called|run|used)\b/g, (_m, t: string) => TOOL_DONE[t] ?? "a search was run");
+  s = s.replace(/\s*\b(?:with|using|via|through|by calling)\s+(?:get_sections|list_levies|browse_part|run_sql)\b/gi, "");
+  s = s.replace(/\b(get_sections|list_levies|browse_part|run_sql)\b/g, (t: string) => TOOL_WORDS[t] ?? "a search");
+  s = s.replace(/\s*\((?:limit of \d+ )?targeted turns?[^)]*\)/gi, "");
+  s = s.replace(/\s*\b(?:in|on|during) (?:this|that|the final|the last|a targeted|one|each) turn\b/gi, "");
+  s = s.replace(/\btargeted turn(s?)\b/gi, "targeted search$1");
+  s = s.replace(/\btaxmap\.(?:sections|acts|levies)\b/g, "the Acts");
+  // a band token followed by its own field name ("under_25m annual turnover") becomes the band in words once
+  s = s.replace(/\b(under_25m|25m_to_100m|over_100m)\s+(?:annual\s+)?(?:gross\s+)?turnover\b/g, "$1");
+  s = s.replace(/\b(under_250m|over_250m)\s+(?:total\s+)?fixed[ _]assets\b/g, "$1");
+  s = cleanReason(s);
+  return s.replace(/\s+([.,;:])/g, "$1").replace(/\s{2,}/g, " ").trim();
+}
+
+/** The checklist area an entry is about: its own key for a coverage line, else the first area its wording matches. */
+function areaOf(entry: string, areas: ChecklistArea[]): string | null {
+  const m = CHECKLIST_LINE.exec(entry);
+  if (m) return m[1] ?? null;
+  return areas.find((a) => a.wording.test(entry))?.key ?? null;
+}
+
+/** The agent's coverage line says least; the model's own entries rank by how much they say. */
+const specificity = (entry: string) => (CHECKLIST_LINE.test(entry) ? 0 : 1 + entry.length);
+
+/** One entry per checklist area, the most specific one, kept where the area first appears; entries for no area all stay. */
+function oneEntryPerArea(entries: string[], areas: ChecklistArea[]): string[] {
+  const slots: Array<{ area: string | null; entry: string }> = [];
+  for (const entry of [...new Set(entries)]) {
+    const area = areaOf(entry, areas);
+    const slot = area === null ? undefined : slots.find((s) => s.area === area);
+    if (!slot) slots.push({ area, entry });
+    else if (specificity(entry) > specificity(slot.entry)) slot.entry = entry;
+  }
+  return slots.map((s) => s.entry);
+}
+
+export interface PageLists {
+  /** "Not answered", one line per area, in plain words. */
+  unanswered: string[];
+  /** "Notes", caveats for the business owner; the agent's housekeeping notes stay in the run log. */
+  notes: string[];
+}
+
+/**
+ * What the page lists under "Not answered" and "Notes". Entries covering the same checklist area are
+ * folded into the most specific one; a coverage line becomes "<area>: the check could not confirm this
+ * from the Acts", so that sentence appears at most once per area; housekeeping notes, and notes that
+ * only report an absence "Not answered" already covers, are left out; internal names are rewritten. The
+ * raw entries stay in draft.unanswered and draft.notes, which the run log shows.
+ */
+export function pageLists(draft: Pick<Draft, "unanswered" | "notes">, profile: Profile): PageLists {
+  const areas = checklistAreas(profile);
+  const unanswered = oneEntryPerArea(draft.unanswered, areas);
+  const covered = new Set(unanswered.map((u) => areaOf(u, areas)).filter((a): a is string => a !== null));
+  const notes = oneEntryPerArea(
+    draft.notes.filter((n) => !HOUSEKEEPING.test(n)),
+    areas,
+  ).filter((n) => {
+    const area = areaOf(n, areas);
+    return !(area !== null && covered.has(area) && ABSENCE.test(n));
+  });
+  return {
+    unanswered: unanswered.map((u) => {
+      const m = CHECKLIST_LINE.exec(u);
+      return m ? `${pageText(m[2] ?? "")}: ${NOT_CONFIRMED}.` : pageText(u);
+    }),
+    notes: notes.map(pageText),
+  };
 }

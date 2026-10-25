@@ -64,6 +64,11 @@ export interface RunResult {
   memory?: HMemRunStats;
   /** World Model figures: facts held overall and from this run. */
   world?: WorldRunStats;
+  /**
+   * "Not answered" and "Notes" as the page shows them (describe.ts pageLists): one entry per checklist
+   * area, internal names rewritten. The raw entries stay in `draft`, for the run log.
+   */
+  page?: { unanswered: string[]; notes: string[] };
   /** Verified facts for this run, read from the World Model when the result is fetched. */
   verified_facts?: Fact[];
   started_at: string;

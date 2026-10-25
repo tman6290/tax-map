@@ -225,10 +225,12 @@ describe("targeted coverage turns", () => {
 
     const r = await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
 
-    const calls = chatMock.mock.calls.map((c) => ({ opts: c[0] as ChatOptions, runtime: c[1] as { retries?: number } }));
+    const calls = chatMock.mock.calls.map((c) => ({ opts: c[0] as ChatOptions, runtime: c[1] as { retries?: number; timeoutMs?: number } }));
     const finalTries = calls.slice(-2);
     expect(finalTries.map((c) => c.opts.max_tokens)).toEqual([8000, 16000]);
     expect(finalTries.map((c) => c.runtime.retries)).toEqual([0, 1]);
+    expect(finalTries.map((c) => c.runtime.timeoutMs)).toEqual([300_000, 300_000]); // drafting turns get 300 s
+    expect(calls[0]?.runtime.timeoutMs).toBe(150_000); // tool turns keep 150 s
     expect(r.trace.some((t) => (t.detail as { phase?: string }).phase === "draft_retry")).toBe(true);
     expect(r.draft.claims).toHaveLength(1);
   });

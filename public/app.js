@@ -539,10 +539,20 @@ function renderResult(r) {
   $("setaside").replaceChildren(...setAside.map(setAsideCard));
   $("setaside-block").hidden = setAside.length === 0;
   const unanswered = r.draft?.unanswered ?? [];
-  fillList("unanswered", "unanswered-block", unanswered.map(plainUnanswered));
   const notes = r.draft?.notes ?? [];
-  fillList("notes", "notes-block", notes.filter((n) => !AGENT_NOTE.test(n) && !INTERNAL.test(n)));
-  const agentNotes = [...notes.filter((n) => AGENT_NOTE.test(n) || INTERNAL.test(n)), ...unanswered.filter((u) => CHECKLIST_RE.test(u))];
+  if (r.page) {
+    // the server's page text: one entry per checklist area, no internal names (describe.ts pageLists)
+    fillList("unanswered", "unanswered-block", r.page.unanswered);
+    fillList("notes", "notes-block", r.page.notes);
+  } else {
+    // a run stored before page text existed
+    fillList("unanswered", "unanswered-block", unanswered.map(plainUnanswered));
+    fillList("notes", "notes-block", notes.filter((n) => !AGENT_NOTE.test(n) && !INTERNAL.test(n)));
+  }
+  // the run log keeps every entry as the agents wrote it
+  const agentNotes = r.page
+    ? [...notes, ...unanswered]
+    : [...notes.filter((n) => AGENT_NOTE.test(n) || INTERNAL.test(n)), ...unanswered.filter((u) => CHECKLIST_RE.test(u))];
   $("agent-notes").replaceChildren(...agentNotes.map((t) => el("li", { text: t })));
   $("agent-notes-block").hidden = agentNotes.length === 0;
 

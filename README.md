@@ -91,7 +91,7 @@ Open http://localhost:8080 and press the button. The page replays a recorded liv
 npm run dev
 ```
 
-A live run takes 4 to 8 minutes; the page shows each step as it happens. Sample mode replays a recorded run in seconds. The Researcher has a 12-turn budget, up to four targeted coverage turns and one read-before-cite revision. The Critic makes about one call per cited section plus a plain-words check per claim.
+A live run takes 6 to 12 minutes and results vary between runs; the page shows each step. Sample mode replays a recorded run in seconds. The Researcher has a 12-turn budget, up to four targeted coverage turns and one read-before-cite revision. The Critic makes about one call per cited section plus a plain-words check per claim.
 
 **CLI scripts** (all live, all need `.env`):
 
@@ -181,8 +181,8 @@ npx tsx scripts/record_sample.ts --attempts 3 --min-claims 5 --min-supported 3 -
 - **Coverage is federal law plus the 1998 allocation.** The Lagos State Harmonised Taxes and Levies Law is not loaded, so State and local levy amounts, and which State levies apply, are not answered. The page says a State or local levy "may be collected", never how much.
 - **Schedules of the 2025 Acts are excluded.** Each Act's text stops at its first Schedule. Rate tables and similar are not loaded; only the 1998 Act's Schedule is.
 - **Residence is assumed to equal the business State.** The profile has one State, fixed at Lagos, and an individual is placed with the State tax authority on that basis (NTAA s. 3(2)).
-- **The Researcher varies from run to run.** Recorded outputs for this profile ranged from 0 to 37 claims. Before the levy relevance filter, one recording drafted 37 claims, mostly every Part III item. After it, seven completed recorder attempts drafted 0 to 4 claims (0, 3, 2, 1, 4, 0 and 4), and the last recording run kept a 4-claim attempt under the fallback; two other attempts in that run failed on gateway errors. The committed sample has 9. A thin draft leaves checklist areas listed as unanswered.
-- **Nightshift and model availability.** Live attempts took from under a minute to about fourteen. The gateway sometimes answers HTTP 502 `…_empty_response` or times out; calls are retried a bounded number of times, and a failed Critic call leaves a claim "Not verified" rather than rejected. Router and model availability on the day decides whether a live run completes.
+- **Live runs vary** (1 to 9 lines across our recordings); the recorded sample is one complete run, not the best of several. A thin draft leaves checklist areas under "Not answered".
+- **Nightshift and model availability.** Attempts that stop early on a gateway error end within a minute or two. The gateway sometimes answers HTTP 502 `…_empty_response` or times out; calls are retried a bounded number of times, and a failed Critic call leaves a claim "Not verified" rather than rejected. Router and model availability on the day decides whether a live run completes.
 - **The sample predates the levies source** (see [Sample mode](#sample-mode)).
 - **This is not legal advice.** Tax Map shows what the loaded Acts say about a described business. It does not replace a tax adviser or the relevant authority.
 
@@ -199,4 +199,4 @@ npm test
 npm run conformance
 ```
 
-`npm test` runs the whole vitest suite: **236 tests in 23 files, all passing**. `npm run conformance` runs only the conformance suites and prints **H-MEM conformance 7/7, World Model conformance 8/8**. These suites are derived from the Implementation Checklists of the Meterless engine specs; items outside the minimum build are listed by the command and are not counted. `npm run build` (strict TypeScript) and `npm run lint` pass.
+`npm test` runs the whole vitest suite: **245 tests in 24 files, all passing**. `npm run conformance` runs only the conformance suites and prints **H-MEM conformance 7/7, World Model conformance 8/8**. These suites are derived from the Implementation Checklists of the Meterless engine specs; items outside the minimum build are listed by the command and are not counted. `npm run build` (strict TypeScript) and `npm run lint` pass.

@@ -149,6 +149,7 @@ describe("POST /api/runs", () => {
       expect(events[0]?.data.text).toMatch(/^Sample run: replaying an answer recorded on \d{1,2} \w+ \d{4}$/);
       expect(events[0]?.data.detail).toMatch(/^Sample run: replaying the recorded run "retail"/); // the name stays in the run log
       expect(events[3]?.data.data).toMatchObject({ run_id, mode: "sample", sample: "retail", draft: output.draft });
+      expect(events[3]?.data.data).toMatchObject({ page: { unanswered: [], notes: [] } }); // page text is attached to the result
       expect(pipelineMock).not.toHaveBeenCalled();
     });
   });

@@ -8,7 +8,7 @@ import { corpus } from "../agents/glossary.js";
 import { isItemId, itemLabel, levies } from "../agents/levies.js";
 import type { CheckedClaim, Profile, TraceStep } from "../agents/types.js";
 import { collectorFor } from "../agents/collector.js";
-import { criticDetail, describeCriticStep, describeHandoff, describeResearcherStep, describeVerdict, handoffDetail, researcherDetail, verdictDetail } from "./describe.js";
+import { criticDetail, describeCriticStep, describeHandoff, describeResearcherStep, describeVerdict, handoffDetail, pageLists, researcherDetail, verdictDetail } from "./describe.js";
 import { getEngines } from "../engines/index.js";
 import { mineRunOutcome, runIngestInput } from "./engine_io.js";
 import { runPipeline } from "./pipeline.js";
@@ -48,7 +48,14 @@ function actsFile(): string {
 async function startLive(store: RunStore, run: Run, profile: Profile, question: string): Promise<void> {
   try {
     const out = await runPipeline(profile, question, { onEvent: (e) => store.emit(run, e) }, { runId: run.id });
-    await store.complete(run, { ...out, run_id: run.id, mode: "live", started_at: run.started_at, finished_at: new Date().toISOString() });
+    await store.complete(run, {
+      ...out,
+      page: pageLists(out.draft, out.profile),
+      run_id: run.id,
+      mode: "live",
+      started_at: run.started_at,
+      finished_at: new Date().toISOString(),
+    });
   } catch (err) {
     store.fail(run, err instanceof Error ? err.message : String(err));
   }
@@ -110,6 +117,7 @@ async function startSample(store: RunStore, run: Run, profile: Profile): Promise
   hmem.endRun(worldRunId);
   await store.complete(run, {
     ...r,
+    page: pageLists(r.draft, sample.profile),
     run_id: run.id,
     mode: "sample",
     sample: sample.name,

@@ -15,6 +15,8 @@ import type { ClaimType, Draft, Profile, ResearchResult, SectionRead, TraceStep 
 export const MAX_TURNS = 12;
 /** Drafting turns on Lightning take 40-60 s; a 60 s limit made the pipeline fail on them. */
 const RESEARCHER_TIMEOUT_MS = 150_000;
+/** Tool-free drafting and revision turns: with thinking on, Lightning took longer than 150 s on full drafts. */
+export const DRAFT_TIMEOUT_MS = 300_000;
 const DRAFT_MAX_TOKENS = 8_000;
 const DRAFT_RETRY_MAX_TOKENS = 16_000; // second try when the 8,000 cap leaves the model no room to answer
 /** At most this many targeted turns for uncovered checklist areas, before the revision turn. */
@@ -753,11 +755,11 @@ export async function research(
    */
   async function draftChat(messages: ChatMessage[]): Promise<ChatResult> {
     try {
-      return await chat({ messages, max_tokens: DRAFT_MAX_TOKENS }, { timeoutMs: RESEARCHER_TIMEOUT_MS, retries: 0 });
+      return await chat({ messages, max_tokens: DRAFT_MAX_TOKENS }, { timeoutMs: DRAFT_TIMEOUT_MS, retries: 0 });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       trace.push({ kind: "model_turn", ts: now(), detail: { phase: "draft_retry", error: msg.slice(0, 200), next_max_tokens: DRAFT_RETRY_MAX_TOKENS } });
-      return chat({ messages, max_tokens: DRAFT_RETRY_MAX_TOKENS }, { timeoutMs: RESEARCHER_TIMEOUT_MS, retries: 1 });
+      return chat({ messages, max_tokens: DRAFT_RETRY_MAX_TOKENS }, { timeoutMs: DRAFT_TIMEOUT_MS, retries: 1 });
     }
   }
 
