@@ -127,7 +127,9 @@ describe("targeted coverage turns", () => {
     expect(asks.map((a) => /\(([a-f])\)/.exec(a)?.[1])).toEqual(["a", "c", "d", "e"]);
     const revise = chatMock.mock.calls[6]?.[0] as ChatOptions;
     expect(revise.tools).toBeUndefined();
-    expect(revise.max_tokens).toBe(4000);
+    expect(revise.max_tokens).toBe(8000);
+    expect(revise.messages[1]?.content).toContain("Digest of the tool results so far"); // not the raw tool results
+    expect(revise.messages.some((m) => m.role === "tool")).toBe(false);
     expect(revise.messages.at(-1)?.content).toContain("text of NTAA-2025-s7");
 
     expect(r.draft.claims.map((c) => c.text)).toEqual(["Business profits are chargeable to income tax.", "The shop must obtain a Tax ID."]);
@@ -212,7 +214,7 @@ describe("targeted coverage turns", () => {
     ]);
   });
 
-  it("retries a tool-free drafting call once at 8,000 tokens when the 4,000 cap fails", async () => {
+  it("retries a tool-free drafting call once at 16,000 tokens when the 8,000 cap fails", async () => {
     const all = [{ text: "Its profits are chargeable to income tax.", ids: ["NTA-2025-s4"] }];
     // the 12th turn is tool-free: reach it with 11 tool turns, each a different id set so none is a repeat
     chatMock.mockResolvedValueOnce(tool("get_sections", { section_ids: ["NTA-2025-s4"] }));
@@ -225,7 +227,7 @@ describe("targeted coverage turns", () => {
 
     const calls = chatMock.mock.calls.map((c) => ({ opts: c[0] as ChatOptions, runtime: c[1] as { retries?: number } }));
     const finalTries = calls.slice(-2);
-    expect(finalTries.map((c) => c.opts.max_tokens)).toEqual([4000, 8000]);
+    expect(finalTries.map((c) => c.opts.max_tokens)).toEqual([8000, 16000]);
     expect(finalTries.map((c) => c.runtime.retries)).toEqual([0, 1]);
     expect(r.trace.some((t) => (t.detail as { phase?: string }).phase === "draft_retry")).toBe(true);
     expect(r.draft.claims).toHaveLength(1);

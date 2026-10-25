@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import type { Claim, Profile } from "./types.js";
 
 /**
  * The Schedule of the Taxes and Levies (Approved List for Collection) Act 1998 (data/statutes/levies.json):
@@ -76,4 +77,82 @@ export function levies(): Map<string, LevyItem> {
   const rows = JSON.parse(readFileSync(file, "utf-8")) as LevyItem[];
   cache = new Map(rows.map((r) => [r.item_id, r]));
   return cache;
+}
+
+/** At most this many claims on Schedule items in an answer. */
+export const MAX_LEVY_CLAIMS = 6;
+
+/** Words that show a claim names a fact about a sector, besides the sector's own name. */
+const SECTOR_WORDS: Record<string, string> = {
+  retail: "retail|shop|kiosk|trad(?:e|er|ers|ing)|store",
+  trading: "shop|kiosk|trad(?:e|er|ers|ing)|store",
+  hospitality: "hospitality|hotel|restaurant|bar|lodging",
+  drinks: "drinks?|beverage|liquor|bar",
+};
+
+/**
+ * The profile facts a levy claim may name: premises and signage only when the profile has them, the
+ * sector (by name and by the words that go with it), employees when there are any, and turnover.
+ */
+export function profileFactPattern(profile: Profile): RegExp {
+  const parts = ["turnover"];
+  if (profile.has_premises) parts.push("premises", "tenement", "building");
+  if (profile.has_signage) parts.push("sign(?:s|age|boards?)?", "advertis[a-z]*");
+  if (profile.employees > 0) parts.push("employ[a-z]*", "staff", "workers?");
+  const sector = profile.sector.trim().toLowerCase();
+  if (sector) {
+    parts.push(...sector.split(/[^a-z]+/).filter((w) => w.length > 2));
+    parts.push(...(SECTOR_WORDS[sector] ? [SECTOR_WORDS[sector]] : []));
+  }
+  return new RegExp(`(?<![a-z])(?:${parts.join("|")})(?![a-z])`, "i");
+}
+
+/** The Schedule items a claim cites. */
+export const itemIdsOf = (claim: Pick<Claim, "section_ids">) => claim.section_ids.filter(isItemId);
+
+export interface LevyLimit {
+  claims: Claim[];
+  /** One note per reason a claim was dropped, naming the claims; these start "Dropped claims" so the page files them under the working. */
+  notes: string[];
+}
+
+/**
+ * After the draft: claims that cite Schedule items are held to one claim per item (a claim whose sorted
+ * citations repeat an earlier one's, or whose items are all claimed already, is dropped and the first
+ * kept), must name a profile fact in their text, and are capped at `max` (the first ones kept).
+ * Claims that cite no item are untouched. Every drop is recorded in the notes.
+ */
+export function limitLevyClaims(claims: Claim[], profile: Profile, max = MAX_LEVY_CLAIMS): LevyLimit {
+  const fact = profileFactPattern(profile);
+  const keys = new Set<string>();
+  const claimed = new Set<string>();
+  const dropped = { repeat: [] as string[], fact: [] as string[], cap: [] as string[] };
+  let levyKept = 0;
+  const kept = claims.filter((c) => {
+    const items = itemIdsOf(c);
+    if (!items.length) return true;
+    const key = [...c.section_ids].sort().join(",");
+    if (keys.has(key) || items.every((i) => claimed.has(i))) {
+      dropped.repeat.push(c.id);
+      return false;
+    }
+    if (!fact.test(c.text)) {
+      dropped.fact.push(c.id);
+      return false;
+    }
+    if (levyKept >= max) {
+      dropped.cap.push(c.id);
+      return false;
+    }
+    levyKept++;
+    keys.add(key);
+    items.forEach((i) => claimed.add(i));
+    return true;
+  });
+  const notes = [
+    dropped.repeat.length && `Dropped claims ${dropped.repeat.join(", ")}: they repeat an earlier levy claim on the same Schedule item.`,
+    dropped.fact.length && `Dropped claims ${dropped.fact.join(", ")}: a levy claim must name a fact about the business (premises, signage, sector, employees or turnover) and these name none.`,
+    dropped.cap.length && `Dropped claims ${dropped.cap.join(", ")}: an answer holds at most ${max} levy claims.`,
+  ].filter((n): n is string => typeof n === "string");
+  return { claims: kept, notes };
 }

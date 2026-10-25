@@ -145,6 +145,16 @@ describe("list_levies", () => {
     });
   });
 
+  it("tells the model on later turns which tiers it has already listed", async () => {
+    sqlMock.mockResolvedValue(levyResult("TLA-1998-sch-III-1"));
+    chatMock
+      .mockResolvedValueOnce(toolTurn("list_levies", { tier: "lga" }))
+      .mockResolvedValueOnce(textTurn({ claims: [], notes: [], unanswered: [] }));
+    await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
+    const second = String((chatMock.mock.calls[1]?.[0] as ChatOptions).messages[1]?.content);
+    expect(second).toContain("list_levies already called for: lga. Those items are read in full (listed above); do not call it again for that tier.");
+  });
+
   it("rejects a tier that is not federal, state or lga", async () => {
     chatMock.mockResolvedValueOnce(toolTurn("list_levies", { tier: "Lagos" })).mockResolvedValueOnce(textTurn({ claims: [], notes: [], unanswered: [] }));
     await research(profile, "q", new InMemoryRunMemory(), { coverage: false });
@@ -198,7 +208,8 @@ describe("Researcher prompt", () => {
 
   it("steers a business with signage or premises to Part III, without naming an item number", () => {
     const steer = levySteer(profile).join(" ");
-    expect(steer).toContain('Call list_levies with tier "lga" and check Part III');
+    expect(steer).toContain("Cover the checklist areas in the Acts first");
+    expect(steer).toContain('Then call list_levies once with tier "lga" and check Part III');
     expect(steer).toContain("permit and premises items");
     expect(steer).toContain("signage and business premises");
     expect(steer).not.toMatch(/item\s+\d|sch-|TLA-1998-|signboard|tenement|kiosk/i);
@@ -316,7 +327,7 @@ describe("Critic: 'may collect' claims on a Schedule item", () => {
     const p = criticSystemPrompt();
     expect(p).toContain("## Schedule items (Taxes and Levies (Approved List for Collection) Act 1998)");
     expect(p).toContain("The quoted text is the Schedule item: quote the item's own words.");
-    expect(p).toContain('A claim that an authority "may collect" a levy is "supported" when the item names that levy and the tier in the Part heading matches the Collector');
+    expect(p).toContain('A claim that an authority "may collect" a levy is "supported" only when both hold: the item names that levy, the tier in the Part heading matches the Collector');
   });
 
   it("gives levies-Act definitions only to claims citing it", () => {

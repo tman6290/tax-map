@@ -6,7 +6,7 @@ import { runSql } from "../data/zetaris.js";
 import type { RunMemory, ScoredMemoryEntry } from "../engines/types.js";
 import { chat, type ChatMessage, type ChatResult, type Receipt, type ToolCall, type ToolDefinition } from "../providers/meterless.js";
 import { areaParts, checklistAreas, describeParts, uncoveredAreas, type ChecklistArea } from "./checklist.js";
-import { isItemId, itemHeading, type LevyPart, type LevyTier } from "./levies.js";
+import { isItemId, itemHeading, limitLevyClaims, type LevyPart, type LevyTier } from "./levies.js";
 import { PROFILE_HEADER } from "./profile.js";
 import { findPart, formatToc, tocEntries } from "./toc.js";
 import { observedTrace } from "./trace.js";
@@ -15,8 +15,8 @@ import type { ClaimType, Draft, Profile, ResearchResult, SectionRead, TraceStep 
 export const MAX_TURNS = 12;
 /** Drafting turns on Lightning take 40-60 s; a 60 s limit made the pipeline fail on them. */
 const RESEARCHER_TIMEOUT_MS = 150_000;
-const DRAFT_MAX_TOKENS = 4_000;
-const DRAFT_RETRY_MAX_TOKENS = 8_000; // second try when the 4,000 cap leaves the model no room to answer
+const DRAFT_MAX_TOKENS = 8_000;
+const DRAFT_RETRY_MAX_TOKENS = 16_000; // second try when the 8,000 cap leaves the model no room to answer
 /** At most this many targeted turns for uncovered checklist areas, before the revision turn. */
 export const MAX_COVERAGE_TURNS = 4;
 const SQL_ROW_LIMIT = 40;
@@ -224,7 +224,7 @@ async function execTool(call: ToolCall): Promise<ToolOutcome> {
     }
 
     if (tool === "get_sections") {
-      const ids = args.section_ids;
+      const ids = sectionIdList(args.section_ids);
       if (!Array.isArray(ids) || ids.length === 0 || !ids.every((x) => typeof x === "string")) {
         return toolError(tool, "get_sections needs a non-empty array of section_id strings.");
       }
@@ -279,6 +279,22 @@ async function execTool(call: ToolCall): Promise<ToolOutcome> {
     });
   }
   return toolError(tool, `Unknown tool '${tool}'. Use browse_part, run_sql, get_sections or list_levies.`);
+}
+
+/**
+ * The section_ids argument as a list. The model sometimes sends the array as a string ("[NTA-2025-s56, NTAA-2025-s22]"
+ * or a JSON string); in a live run nine such calls in a row were rejected. Anything else is returned as given.
+ */
+export function sectionIdList(v: unknown): unknown {
+  if (typeof v !== "string") return v;
+  try {
+    const parsed: unknown = JSON.parse(v);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // not JSON: split below
+  }
+  const ids = v.split(/[\s,;[\]"']+/).filter(Boolean);
+  return ids.length ? ids : v;
 }
 
 const LEVY_SELECT = "item_id, act_id, part, part_title, tier, item_no, text";
@@ -372,9 +388,45 @@ interface RunState {
   fetched: Set<string>;
   queries: string[];
   excerpts: Map<string, { heading: string; snippet: string }>;
+  /** Every tool call that ran (repeats excluded): its SQL or label and its row count, for the drafting digest. */
+  queryLog: Array<{ query: string; rows: number }>;
+  /** Tiers list_levies has returned; the model re-called it for the same tier in a live run. */
+  levyTiers: Set<string>;
 }
 
-const FINAL_EXCERPTS = 30;
+const DIGEST_SQL_CHARS = 300;
+const DIGEST_SECTION_CHARS = 300;
+
+/**
+ * What a drafting or revision turn is given in place of the raw tool results: per query its SQL and row
+ * count, per section read in full its id, heading and first 300 characters.
+ */
+export function drafterDigest(queryLog: Array<{ query: string; rows: number }>, read: Record<string, SectionRead>): string {
+  const lines = ["Digest of the tool results so far (the raw results are not repeated):", "Queries run (SQL, rows):"];
+  for (const q of queryLog) {
+    const sql = q.query.replace(/\s+/g, " ").trim();
+    lines.push(`- ${sql.length > DIGEST_SQL_CHARS ? `${sql.slice(0, DIGEST_SQL_CHARS)}…` : sql} -> ${q.rows} ${q.rows === 1 ? "row" : "rows"}`);
+  }
+  if (!queryLog.length) lines.push("- none");
+  lines.push("Sections read in full (id, heading, first 300 characters):");
+  const ids = Object.keys(read);
+  for (const id of ids) {
+    const r = read[id] as SectionRead;
+    lines.push(`- ${id}${r.heading ? ` (${r.heading})` : ""}: ${r.text.replace(/\s+/g, " ").slice(0, DIGEST_SECTION_CHARS)}`);
+  }
+  if (!ids.length) lines.push("- none");
+  return lines.join("\n");
+}
+
+/**
+ * The full text of the sections most likely to be cited, as revision turns carry it: at most
+ * REVISION_MAX_SECTIONS, each cut to REVISION_TEXT_CHARS. Sections the draft already cites come first,
+ * then the rest by `score`.
+ */
+export function candidateTexts(read: Record<string, SectionRead>, cited: string[], score: (r: Row) => number): Row[] {
+  const rows: Row[] = Object.entries(read).map(([section_id, r]) => ({ section_id, heading: r.heading, text: r.text }));
+  return revisionTexts(rows, (r) => (cited.includes(String(r.section_id)) ? 1_000_000 : 0) + score(r));
+}
 
 function alreadyFound(entries: ScoredMemoryEntry[], st: RunState, turn: number, lastTurn: boolean): string {
   const { seen, fetched, queries } = st;
@@ -395,13 +447,13 @@ function alreadyFound(entries: ScoredMemoryEntry[], st: RunState, turn: number, 
   }
   lines.push(`Section ids seen so far (you may cite only these): ${[...seen].join(", ") || "none"}`);
   lines.push(`Sections already read in full with get_sections: ${[...fetched].join(", ") || "none"}`);
+  if (st.levyTiers.size) {
+    lines.push(`list_levies already called for: ${[...st.levyTiers].join(", ")}. Those items are read in full (listed above); do not call it again for that tier.`);
+  }
   if (queries.length) lines.push(`Queries already run (do not repeat them):\n${queries.map((q) => `  ${q}`).join("\n")}`);
 
   if (lastTurn) {
-    // the final turn carries no tool history, so give the model short excerpts to draft from
-    const ex = [...st.excerpts].slice(0, FINAL_EXCERPTS);
-    lines.push("Excerpts of the sections seen (first 300 characters each):");
-    for (const [id, e] of ex) lines.push(`- ${id}${e.heading ? ` (${e.heading})` : ""}: ${e.snippet}`);
+    // the final turn carries no tool history: the digest and candidate texts follow (see draftingContext)
     lines.push("This is your final turn and tools are disabled. Reply now with only the Draft JSON object.");
   } else if (turn >= MAX_TURNS - 3) {
     lines.push(
@@ -437,9 +489,11 @@ export function levySteer(profile: Profile): string[] {
   if (!has.length) return [];
   return [
     "",
-    `This business has ${has.join(" and ")}. Call list_levies with tier "lga" and check Part III of the Schedule of the ` +
+    `This business has ${has.join(" and ")}. Cover the checklist areas in the Acts first (browse the Map of the Acts, read the sections). ` +
+      `Then call list_levies once with tier "lga" and check Part III of the Schedule of the ` +
       "Taxes and Levies (Approved List for Collection) Act for permit and premises items that may apply to it. " +
-      "Cite each item that does by its item_id, and say only that the local government may collect it.",
+      "Draft a claim only for an item whose subject matches a fact about this business, name that fact in the claim, " +
+      "cite the item by its item_id, and say only that the local government may collect it.",
   ];
 }
 
@@ -584,7 +638,7 @@ export async function research(
 ): Promise<ResearchResult> {
   const trace = observedTrace(options.onTrace);
   const receipts: Receipt[] = [];
-  const st: RunState = { seen: new Set(), fetched: new Set(), queries: [], excerpts: new Map() };
+  const st: RunState = { seen: new Set(), fetched: new Set(), queries: [], excerpts: new Map(), queryLog: [], levyTiers: new Set() };
   const { seen, fetched } = st;
   const notes: string[] = [];
   const task = taskMessage(profile, question);
@@ -617,8 +671,8 @@ export async function research(
       const guard = guardSql(args.sql);
       if (!guard.ok) return undefined;
       key = `sql:${canonicalSql(guard.sql)}`;
-    } else if (call.function.name === "get_sections" && Array.isArray(args.section_ids)) {
-      key = `get:${[...new Set(args.section_ids.map(String))].sort().join(",")}`;
+    } else if (call.function.name === "get_sections" && Array.isArray(sectionIdList(args.section_ids))) {
+      key = `get:${[...new Set((sectionIdList(args.section_ids) as string[]).map(String))].sort().join(",")}`;
     } else if (call.function.name === "list_levies" && typeof args.tier === "string") {
       key = `levies:${args.tier}`;
     } else {
@@ -647,6 +701,7 @@ export async function research(
     if (rep && !out.detail.error) toolResults.set(rep.key, out.content);
     // list_levies returns each Schedule item's full text, so its items count as read in full
     const readsInFull = call.function.name === "get_sections" || call.function.name === "list_levies";
+    if (call.function.name === "list_levies" && !out.detail.error) st.levyTiers.add(String(out.detail.requested));
     if (readsInFull) {
       for (const r of out.rows) {
         if (typeof r.section_id !== "string") continue;
@@ -659,6 +714,10 @@ export async function research(
       }
     }
     trace.push({ kind: "tool_result", ts: now(), detail: { ...out.detail, by } });
+    st.queryLog.push({
+      query: String(out.detail.sql_run ?? out.detail.sql_requested ?? `${call.function.name} ${String(out.detail.requested ?? "")}`.trim()),
+      rows: out.rows.length,
+    });
     const ids = out.rows.map((r) => r.section_id).filter((x): x is string => typeof x === "string");
     ids.forEach((id) => seen.add(id));
     if (readsInFull) ids.forEach((id) => fetched.add(id));
@@ -700,6 +759,22 @@ export async function research(
       trace.push({ kind: "model_turn", ts: now(), detail: { phase: "draft_retry", error: msg.slice(0, 200), next_max_tokens: DRAFT_RETRY_MAX_TOKENS } });
       return chat({ messages, max_tokens: DRAFT_RETRY_MAX_TOKENS }, { timeoutMs: RESEARCHER_TIMEOUT_MS, retries: 1 });
     }
+  }
+
+  /**
+   * The context of a drafting or revision turn in place of raw tool results: the digest, and (unless the
+   * turn already carries revision texts) the full text of at most 8 candidate sections at 1,500 characters,
+   * the ones the earlier draft cites first, then the ones most relevant to the checklist areas.
+   */
+  function draftingContext(cited: string[], withTexts: boolean): string {
+    const parts = [drafterDigest(st.queryLog, sectionsRead)];
+    if (withTexts) {
+      const texts = candidateTexts(sectionsRead, cited, areaScore(checklistAreas(profile)));
+      if (texts.length) {
+        parts.push(`Full text of the sections most likely to be cited (at most ${REVISION_MAX_SECTIONS}, first ${REVISION_TEXT_CHARS} characters each):\n${JSON.stringify(texts)}`);
+      }
+    }
+    return parts.join("\n\n");
   }
 
   /** What the run has read so far, for the coverage turns (which do not carry the tool history). */
@@ -794,7 +869,7 @@ export async function research(
     const texts = revisionTexts([...byId.values()], areaScore(missing));
     const reviseMessages: ChatMessage[] = [
       { role: "system", content: systemPrompt() },
-      { role: "user", content: `${task}\n\n${readSoFar()}` },
+      { role: "user", content: `${task}\n\n${draftingContext([], false)}` }, // the revision message below carries the texts
       { role: "assistant", content: JSON.stringify(working) },
       {
         role: "user",
@@ -807,7 +882,8 @@ export async function research(
           JSON.stringify(texts) +
           (levyLines.length
             ? "\n\nSchedule items of the Taxes and Levies (Approved List for Collection) Act 1998, read in full. Cite an item by its " +
-              "item_id; a claim on one says only that the authority may collect the levy, and states no amount:\n" +
+              "item_id; a claim on one is made only for an item whose subject matches this business, names the profile fact it " +
+              "rests on, says only that the authority may collect the levy, and states no amount:\n" +
               levyLines.join("\n")
             : ""),
       },
@@ -857,6 +933,9 @@ export async function research(
     if (turn > 1) {
       const found = await memory.retrieve(question, 5);
       userContent = `${task}\n\n${alreadyFound(found, st, turn, lastTurn)}`;
+      // drafting and revision turns get a digest, not raw tool results; after the read-before-cite
+      // revision the exchange already carries the texts, so only the digest is added
+      if (noTools) userContent += `\n\n${draftingContext((fallback ?? draft)?.claims.flatMap((c) => c.section_ids) ?? [], !verifyUsed)}`;
     }
     // Turns without tools also leave out tool-call history: in a live run the model kept emitting
     // tool calls under tool_choice "none" and even with no tools in the request.
@@ -989,7 +1068,10 @@ export async function research(
   if (unread.length) notes.push(`Dropped section_ids not read in full with get_sections: ${unread.join(", ")}`);
   if (uncited.length) notes.push(`Dropped claims left without a citation read in full: ${uncited.join(", ")}`);
 
-  const kept = claims.filter((c) => c.section_ids.length > 0);
+  // levy claims: one per Schedule item, each naming a profile fact, at most MAX_LEVY_CLAIMS
+  const limited = limitLevyClaims(claims.filter((c) => c.section_ids.length > 0), profile);
+  notes.push(...limited.notes);
+  const kept = limited.claims;
   const stillUncovered = uncoveredAreas(kept, profile).map((a) =>
     targetedAreas.includes(a.key)
       ? `Checklist (${a.key}) ${a.label}: no claim after a targeted search of ${describeParts(areaParts(a))}.`

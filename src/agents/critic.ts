@@ -256,6 +256,10 @@ function userMessage(profile: Profile, claim: Claim, defs: GlossaryEntry[], piec
   ];
   if (collector && isItemId(piece.section_id)) {
     parts.push(`Collector: ${collector.authority} (tier: ${collector.tier})`);
+    parts.push(
+      "Question for this Schedule item: does the quoted item describe a levy that applies to this business given the profile, " +
+        "and does the claim say only that the authority may collect it? Strike the claim if the item's subject does not match the profile.",
+    );
   }
   if (defs.length) {
     parts.push("", "Definitions (authoritative for the terms they define):");

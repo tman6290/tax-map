@@ -1,8 +1,10 @@
 // Runs the live pipeline for the built-in profile and records it as a sample for SAMPLE_MODE.
-//   npx tsx scripts/record_sample.ts [--attempts N] [--min-claims N] [--min-supported N] [--out path.json]
+//   npx tsx scripts/record_sample.ts [--attempts N] [--min-claims N] [--min-supported N] [--max-claims N] [--fallback-min-claims N] [--out path.json]
 // Runs the pipeline up to --attempts times (default 1) and keeps the run with the most supported
 // claims among those with at least --min-claims claims and --min-supported supported (both default
-// 0). If no attempt meets both minimums, nothing is written and the existing sample stays.
+// 0) and, with --max-claims, at most that many claims (an attempt with more is rejected). If no
+// attempt meets all of them, --fallback-min-claims N keeps the best attempt with at least N claims that
+// meets the other limits, and says so; otherwise nothing is written and the existing sample stays.
 // --out writes elsewhere (for example a candidate to compare before replacing the sample).
 // Default output: data/samples/retail-sole-proprietor-ikeja.json, holding the full event trace,
 // draft, checked claims (with each claim's plain-words line and plain_checked), definitions and receipts. Receipts keep model, lane, provider, receipt_id,
@@ -46,6 +48,8 @@ function intArg(name: string, fallback: number): number {
 const attempts = Math.max(1, intArg("--attempts", 1));
 const minClaims = intArg("--min-claims", 0);
 const minSupported = intArg("--min-supported", 0);
+const maxClaims = arg("--max-claims") === undefined ? Infinity : intArg("--max-claims", 0);
+const fallbackMinClaims = arg("--fallback-min-claims") === undefined ? undefined : intArg("--fallback-min-claims", 0);
 const out = arg("--out") ? resolve(String(arg("--out"))) : join(samplesDir(), `${NAME}.json`);
 
 interface Attempt {
@@ -66,9 +70,9 @@ const counts = (r: PipelineOutput) => {
     `${drafted} with a plain line, ${checked} plain_checked, ${t.model_calls} model calls, ${t.signed_receipts} signed`
   );
 };
-const meets = (r: PipelineOutput) => r.checked.length >= minClaims && r.totals.supported >= minSupported;
+const meets = (r: PipelineOutput, min = minClaims) => r.checked.length >= min && r.checked.length <= maxClaims && r.totals.supported >= minSupported;
 
-console.log(`recording up to ${attempts} attempt(s); keep the best with >= ${minClaims} claims and >= ${minSupported} supported`);
+console.log(`recording up to ${attempts} attempt(s); keep the best with >= ${minClaims} claims${maxClaims < Infinity ? `, <= ${maxClaims} claims` : ""} and >= ${minSupported} supported`);
 await warmCache();
 
 const done: Attempt[] = [];
@@ -90,18 +94,29 @@ for (let n = 1; n <= attempts; n++) {
   }
   const a = done[done.length - 1];
   console.log(
-    `attempt ${n}: ${a?.result ? `${counts(a.result)}${meets(a.result) ? "" : " (below the minimums)"}` : `failed: ${a?.error}`}, ${a?.seconds} s`,
+    `attempt ${n}: ${a?.result ? `${counts(a.result)}${meets(a.result) ? "" : " (outside the limits)"}` : `failed: ${a?.error}`}, ${a?.seconds} s`,
   );
 }
 
 console.log("\n=== summary");
 for (const a of done) console.log(`attempt ${a.n}: ${a.result ? counts(a.result) : `failed: ${a.error}`}, ${a.seconds} s`);
 
-const qualifying = done.filter((a): a is Attempt & { result: PipelineOutput } => a.result !== undefined && meets(a.result));
-qualifying.sort((x, y) => y.result.totals.supported - x.result.totals.supported || y.result.checked.length - x.result.checked.length);
-const best = qualifying[0];
+type Done = Attempt & { result: PipelineOutput };
+const bestOf = (min: number): Done | undefined =>
+  done
+    .filter((a): a is Done => a.result !== undefined && meets(a.result, min))
+    .sort((x, y) => y.result.totals.supported - x.result.totals.supported || y.result.checked.length - x.result.checked.length)[0];
+let best = bestOf(minClaims);
+if (!best && fallbackMinClaims !== undefined) {
+  best = bestOf(fallbackMinClaims);
+  if (best) {
+    console.log(
+      `\nno attempt reached ${minClaims} claims; keeping the best attempt with >= ${fallbackMinClaims} claims and >= ${minSupported} supported (--fallback-min-claims)`,
+    );
+  }
+}
 if (!best) {
-  console.log(`\nno attempt met the minimums (>= ${minClaims} claims, >= ${minSupported} supported); nothing written, the existing sample is unchanged`);
+  console.log(`\nno attempt met the limits (>= ${minClaims} claims, ${maxClaims < Infinity ? `<= ${maxClaims} claims, ` : ""}>= ${minSupported} supported); nothing written, the existing sample is unchanged`);
   process.exit(2);
 }
 
